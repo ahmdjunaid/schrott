@@ -1,0 +1,60 @@
+import { supabase } from './supabaseClient';
+import { Bill, BillDetails, BillItem } from '../types';
+
+export const billingService = {
+  createBill: async (billData: {
+    customer_id: string;
+    items: any[];
+    paid_amount: number;
+    payment_method: string | null;
+  }): Promise<string> => {
+    const { customer_id, items, paid_amount, payment_method } = billData;
+    
+    const { data, error } = await supabase.rpc('create_bill_and_update_stock', {
+      p_customer_id: customer_id,
+      p_items: items,
+      p_paid_amount: paid_amount,
+      p_payment_method: payment_method
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
+  deleteBill: async (billId: string): Promise<void> => {
+    const { error } = await supabase.rpc('delete_bill_and_restock', {
+      p_bill_id: billId
+    });
+    if (error) throw error;
+  },
+
+  getAllBills: async (): Promise<Bill[]> => {
+    const { data, error } = await supabase
+      .from('bills')
+      .select(`
+        *,
+        customer:customers(name, phone, shop_name, location)
+      `)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Bill[];
+  },
+
+  getBillDetails: async (billId: string): Promise<BillDetails> => {
+    const { data, error } = await supabase
+      .from('bills')
+      .select(`
+        *,
+        customer:customers(*),
+        items:bill_items(
+          *,
+          product:products(name)
+        ),
+        payments:payments(*)
+      `)
+      .eq('id', billId)
+      .single();
+    if (error) throw error;
+    return data as BillDetails;
+  }
+};
