@@ -4,9 +4,10 @@ import { customerService } from '../services/customers';
 import { productService } from '../services/inventory';
 import { Button, Input, Card, Modal, Table, Badge, Pagination, cn } from '../components/UI';
 import { SearchableSelect } from '../components/UI/SearchableSelect';
-import { Plus, Trash2, Search, Package, ShoppingCart, Layers, Edit3, Save, Printer, ChevronRight, X, Info, Receipt, ArrowUpRight, AlertTriangle, Eye, MapPin, Phone, AlignLeft } from 'lucide-react';
+import { Plus, Trash2, Search, Package, ShoppingCart, Layers, Edit3, Save, Printer, ChevronRight, X, Info, Receipt, ArrowUpRight, AlertTriangle, Eye, MapPin, Phone, AlignLeft, Banknote, QrCode, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { confirmToast } from '../utils/toast';
 import { Bill, Customer, Product, PurchaseItem } from '../types';
 
 interface BillItemEntry {
@@ -248,15 +249,18 @@ export function Billing() {
   };
 
   const handleBillDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this bill? Stock will be restored.')) {
-      try {
-        await billingService.deleteBill(id);
-        fetchData();
-        toast.success('Bill deleted successfully.');
-      } catch (error: any) {
-        toast.error(error.message);
+    confirmToast(
+      'Are you sure you want to delete this bill? Stock will be restored.',
+      async () => {
+        try {
+          await billingService.deleteBill(id);
+          fetchData();
+          toast.success('Bill deleted successfully.');
+        } catch (error: any) {
+          toast.error(error.message);
+        }
       }
-    }
+    );
   };
 
   const handleViewBill = async (id: string) => {
@@ -606,16 +610,53 @@ _Thank you for your business!_`;
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Payment Method</label>
-                <select
-                  className="w-full h-14 px-5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black focus:ring-4 focus:ring-primary/10 transition-all outline-none italic"
-                  value={paymentMethod}
-                  onChange={(e: any) => setPaymentMethod(e.target.value)}
-                  disabled={parseFloat(paidAmount.toString()) <= 0}
-                >
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="card">Card / POS</option>
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash')}
+                    disabled={parseFloat(paidAmount.toString()) <= 0}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-14",
+                      paymentMethod === 'cash' 
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm" 
+                        : "bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200",
+                      parseFloat(paidAmount.toString()) <= 0 && "opacity-30 grayscale cursor-not-allowed"
+                    )}
+                  >
+                    <Banknote size={20} strokeWidth={paymentMethod === 'cash' ? 2.5 : 2} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Cash</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('upi')}
+                    disabled={parseFloat(paidAmount.toString()) <= 0}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-14",
+                      paymentMethod === 'upi' 
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm" 
+                        : "bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200",
+                      parseFloat(paidAmount.toString()) <= 0 && "opacity-30 grayscale cursor-not-allowed"
+                    )}
+                  >
+                    <QrCode size={20} strokeWidth={paymentMethod === 'upi' ? 2.5 : 2} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">UPI</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    disabled={parseFloat(paidAmount.toString()) <= 0}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-14",
+                      paymentMethod === 'card' 
+                        ? "bg-slate-900 border-slate-800 text-white shadow-lg" 
+                        : "bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200",
+                      parseFloat(paidAmount.toString()) <= 0 && "opacity-30 grayscale cursor-not-allowed"
+                    )}
+                  >
+                    <CreditCard size={20} strokeWidth={paymentMethod === 'card' ? 2.5 : 2} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Card</span>
+                  </button>
+                </div>
               </div>
            </div>
          </div>

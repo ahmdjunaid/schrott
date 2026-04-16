@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Search, Phone, MapPin, Truck, Eye, ShoppingBag, Wa
 import { Supplier } from '../types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { confirmToast } from '../utils/toast';
 
 export function Suppliers() {
   const [suppliers, setSuppliers] = useState<(Supplier & { balance: number })[]>([]);
@@ -119,15 +120,18 @@ export function Suppliers() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this supplier?')) {
-      try {
-        await supplierService.delete(id);
-        fetchSuppliers();
-        toast.success('Supplier deleted');
-      } catch (error: any) {
-        toast.error(error.message);
+    confirmToast(
+      'Are you sure you want to delete this supplier?',
+      async () => {
+        try {
+          await supplierService.delete(id);
+          fetchSuppliers();
+          toast.success('Supplier deleted');
+        } catch (error: any) {
+          toast.error(error.message);
+        }
       }
-    }
+    );
   };
 
   const resetForm = () => {

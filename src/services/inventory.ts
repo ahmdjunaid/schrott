@@ -10,6 +10,7 @@ export const productService = {
         categories!category_id(name),
         brands!brand_id(name)
       `)
+      .eq('is_active', true)
       .order('name', { ascending: true });
     
     if (error) {
@@ -58,7 +59,7 @@ export const productService = {
   create: async (product: Omit<Product, 'id' | 'created_at'>): Promise<Product> => {
     const { data, error } = await supabase
       .from('products')
-      .insert([product])
+      .insert([{ ...product, is_active: true }])
       .select()
       .single();
     if (error) throw error;
@@ -79,7 +80,7 @@ export const productService = {
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('products')
-      .delete()
+      .update({ is_active: false })
       .eq('id', id);
     if (error) throw error;
   }
@@ -90,6 +91,7 @@ export const categoryService = {
     const { data, error } = await supabase
       .from('categories')
       .select('*, products(count)')
+      .eq('is_blocked', false)
       .order('name', { ascending: true });
     if (error) throw error;
     return (data || []).map((c: any) => ({
@@ -122,7 +124,7 @@ export const categoryService = {
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('categories')
-      .delete()
+      .update({ is_blocked: true })
       .eq('id', id);
     if (error) throw error;
   }
@@ -133,6 +135,7 @@ export const brandService = {
     const { data, error } = await supabase
       .from('brands')
       .select('*, products(count)')
+      .eq('is_blocked', false)
       .order('name', { ascending: true });
     if (error) throw error;
     return (data || []).map((b: any) => ({
@@ -165,7 +168,7 @@ export const brandService = {
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('brands')
-      .delete()
+      .update({ is_blocked: true })
       .eq('id', id);
     if (error) throw error;
   }

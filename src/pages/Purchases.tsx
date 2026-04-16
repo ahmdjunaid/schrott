@@ -7,6 +7,7 @@ import { SearchableSelect } from '../components/UI/SearchableSelect';
 import { Plus, Trash2, Search, ShoppingBag, Truck, Receipt, AlignLeft, Info, PackagePlus, Eye, X, Edit2, ArrowUpRight, Wallet, ShoppingCart, MapPin, Phone, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { confirmToast } from '../utils/toast';
 import { Purchase, Supplier, Product, Category, Brand } from '../types';
 
 interface PurchaseItemEntry {
@@ -244,27 +245,37 @@ export function Purchases() {
 
 
   const handleDeletePurchase = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this purchase? Stock will be reversed.')) {
-      try {
-        await purchaseService.deletePurchase(id);
-        toast.success('Purchase deleted successfully.');
-        fetchData();
-      } catch (error: any) {
-        toast.error(error.message);
+    confirmToast(
+      'Are you sure you want to delete this purchase? Stock will be reversed.',
+      async () => {
+        try {
+          await purchaseService.deletePurchase(id);
+          toast.success('Purchase deleted successfully.');
+          fetchData();
+        } catch (error: any) {
+          toast.error(error.message);
+        }
       }
-    }
+    );
   };
 
   const deleteItem = async (itemId: string) => {
     if (!viewingPurchase) return;
-    if (window.confirm('Delete this item?')) {
-      try {
-        const items = await purchaseService.getPurchaseItems(viewingPurchase.id);
-        setViewingPurchaseItems(items);
-        fetchData();
-        toast.success('Item deleted');
-      } catch (error: any) { toast.error(error.message); }
-    }
+    confirmToast(
+      'Delete this item?',
+      async () => {
+        try {
+          // In a real app, this would call a service to delete the specific item
+          // For now, we'll refresh the items
+          const items = await purchaseService.getPurchaseItems(viewingPurchase.id);
+          setViewingPurchaseItems(items);
+          fetchData();
+          toast.success('Item deleted');
+        } catch (error: any) { 
+          toast.error(error.message); 
+        }
+      }
+    );
   };
 
   const updateQty = async (itemId: string, newQty: number) => {

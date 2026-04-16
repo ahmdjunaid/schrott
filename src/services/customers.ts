@@ -9,6 +9,7 @@ export const customerService = {
         *,
         bills(balance_amount)
       `)
+      .eq('is_active', true)
       .order('shop_name', { ascending: true });
     
     if (error) throw error;
@@ -32,7 +33,7 @@ export const customerService = {
   create: async (customer: Omit<Customer, 'id' | 'created_at'>): Promise<Customer> => {
     const { data, error } = await supabase
       .from('customers')
-      .insert([customer])
+      .insert([{ ...customer, is_active: true }])
       .select()
       .single();
     if (error) throw error;
@@ -53,8 +54,17 @@ export const customerService = {
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('customers')
-      .delete()
+      .update({ is_active: false })
       .eq('id', id);
+    if (error) throw error;
+  },
+
+  settlePayment: async (customerId: string, amount: number, method: string): Promise<void> => {
+    const { error } = await supabase.rpc('settle_customer_payment', {
+      p_customer_id: customerId,
+      p_amount: amount,
+      p_method: method
+    });
     if (error) throw error;
   }
 };

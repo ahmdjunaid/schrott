@@ -2,6 +2,7 @@ import React, { ReactNode, ComponentType } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -183,37 +184,37 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-6">
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
         onClick={onClose} 
       />
       <div className={cn(
-        "relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-300",
+        "relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[95vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 sm:slide-in-from-bottom-0 sm:zoom-in-95 fade-in duration-300",
         className
       )}>
         {/* Header - Fixed */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h2>
+        <div className="px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{title}</h2>
           <button 
             onClick={onClose} 
             className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 
         {/* Content - Scrollable */}
-        <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
+        <div className="p-5 sm:p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
           {children}
         </div>
 
         {/* Footer - Fixed */}
         {footer && (
-          <div className="px-6 py-4 bg-white border-t border-slate-100 flex justify-end gap-3 shrink-0">
-            {footer}
+          <div className="px-6 py-4 bg-white border-t border-slate-100 flex justify-end gap-3 shrink-0 pb-[safe-area-inset-bottom]">
+            <div className="flex gap-3 w-full sm:w-auto">
+              {footer}
+            </div>
           </div>
         )}
       </div>
@@ -245,9 +246,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
           disabled={currentPage === 1}
           className="p-2 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:pointer-events-none transition-all text-slate-400 hover:text-primary border border-transparent hover:border-slate-200"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
         
         {pages.map(page => (
@@ -270,9 +269,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
           disabled={currentPage === totalPages}
           className="p-2 rounded-lg hover:bg-white hover:shadow-sm disabled:opacity-30 disabled:pointer-events-none transition-all text-slate-400 hover:text-primary border border-transparent hover:border-slate-200"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>
     </div>

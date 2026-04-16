@@ -39,6 +39,7 @@ export interface Customer {
   phone: string;
   shop_name: string;
   location?: string;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -91,6 +92,7 @@ export interface Supplier {
   phone: string;
   shop_name: string;
   location?: string;
+  is_active: boolean;
   wallet_balance?: number;
   created_at: string;
 }

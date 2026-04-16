@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { productService, categoryService, brandService } from '../services/inventory';
-import { Button, Input, Card, Modal, Table, Badge, Pagination } from '../components/UI';
+import { Button, Input, Card, Modal, Table, Badge, Pagination, cn } from '../components/UI';
 import { Plus, Edit2, Trash2, Search, Package, Tag, Building2, Eye, Info } from 'lucide-react';
 import { Product, Category, Brand } from '../types';
 import toast from 'react-hot-toast';
+import { confirmToast } from '../utils/toast';
 
 export function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -89,15 +90,18 @@ export function Products() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await productService.delete(id);
-        fetchData();
-        toast.success('Product deleted');
-      } catch (error: any) {
-        toast.error(error.message);
+    confirmToast(
+      'Are you sure you want to delete this product?',
+      async () => {
+        try {
+          await productService.delete(id);
+          fetchData();
+          toast.success('Product deleted');
+        } catch (error: any) {
+          toast.error(error.message);
+        }
       }
-    }
+    );
   };
 
   const handleViewBatches = async (product: Product) => {
@@ -397,7 +401,9 @@ export function Products() {
               <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
                  <div>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Aggregate Inventory Stock</span>
-                    <div className="text-2xl font-black text-slate-900 italic tracking-tighter leading-none mt-1">{selectedProductForBatch.stock} UNITS</div>
+                    <div className="text-2xl font-black text-slate-900 italic tracking-tighter leading-none mt-1">
+                      {productBatches.reduce((sum, b) => sum + (b.remaining_qty || 0), 0)} UNITS
+                    </div>
                  </div>
                  <div className="text-right">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Asset Valuation</span>
@@ -414,6 +420,3 @@ export function Products() {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
-}

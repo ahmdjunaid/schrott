@@ -9,6 +9,7 @@ export const supplierService = {
         *,
         purchases(balance_amount)
       `)
+      .eq('is_active', true)
       .order('shop_name', { ascending: true });
     
     if (error) throw error;
@@ -33,7 +34,7 @@ export const supplierService = {
   create: async (supplier: Omit<Supplier, 'id' | 'created_at'>): Promise<Supplier> => {
     const { data, error } = await supabase
       .from('suppliers')
-      .insert([supplier])
+      .insert([{ ...supplier, is_active: true }])
       .select()
       .single();
     if (error) throw error;
@@ -54,7 +55,7 @@ export const supplierService = {
   delete: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('suppliers')
-      .delete()
+      .update({ is_active: false })
       .eq('id', id);
     if (error) throw error;
   },

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { customerService } from '../services/customers';
 import { Button, Input, Card, Modal, Table, Badge, Avatar, Pagination, cn } from '../components/UI';
-import { Plus, Edit2, Trash2, Search, Phone, MapPin, Users, Eye, Receipt } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Phone, MapPin, Users, Eye, Receipt, Banknote, QrCode, CreditCard } from 'lucide-react';
 import { Customer } from '../types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { confirmToast } from '../utils/toast';
 
 export function Customers() {
   const [customers, setCustomers] = useState<(Customer & { balance: number })[]>([]);
@@ -19,6 +20,9 @@ export function Customers() {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [settleAmount, setSettleAmount] = useState<number | string>('');
+  const [settleMethod, setSettleMethod] = useState<'cash' | 'upi' | 'card'>('cash');
 
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -88,15 +92,18 @@ export function Customers() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        await customerService.delete(id);
-        fetchCustomers();
-        toast.success('Customer deleted');
-      } catch (error: any) {
-        toast.error(error.message);
+    confirmToast(
+      'Are you sure you want to delete this customer?',
+      async () => {
+        try {
+          await customerService.delete(id);
+          fetchCustomers();
+          toast.success('Customer deleted');
+        } catch (error: any) {
+          toast.error(error.message);
+        }
       }
-    }
+    );
   };
 
   const resetForm = () => {
@@ -167,15 +174,23 @@ export function Customers() {
                     </td>
                     <td className="px-6 py-4">
                        <div className="flex items-center gap-1">
-                          <button onClick={() => loadDetails(c)} className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all" title="View Details">
-                            <Eye size={16} strokeWidth={2.5} />
-                          </button>
-                          <button onClick={() => handleEdit(c)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
-                            <Edit2 size={16} strokeWidth={2.5} />
-                          </button>
-                          <button onClick={() => handleDelete(c.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">
-                            <Trash2 size={16} strokeWidth={2.5} />
-                          </button>
+                        <button 
+                          onClick={() => { setSelectedCustomer(c); setSettleAmount(c.balance); setIsSettleModalOpen(true); }} 
+                          className="p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-all"
+                          title="Settle Payment"
+                          disabled={c.balance <= 0}
+                        >
+                          <Receipt size={16} strokeWidth={2.5} />
+                        </button>
+                        <button onClick={() => loadDetails(c)} className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all" title="View Details">
+                          <Eye size={16} strokeWidth={2.5} />
+                        </button>
+                        <button onClick={() => handleEdit(c)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
+                          <Edit2 size={16} strokeWidth={2.5} />
+                        </button>
+                        <button onClick={() => handleDelete(c.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">
+                          <Trash2 size={16} strokeWidth={2.5} />
+                        </button>
                        </div>
                     </td>
                   </tr>
@@ -309,6 +324,115 @@ export function Customers() {
               </Card>
             )}
           </div>
+        </div>
+      </Modal>
+
+      {/* Settle Payment Modal */}
+      <Modal
+        isOpen={isSettleModalOpen}
+        onClose={() => setIsSettleModalOpen(false)}
+        title="Settle Outstanding Balance"
+        footer={
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Button variant="ghost" onClick={() => setIsSettleModalOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button 
+              onClick={async () => {
+                if (!selectedCustomer || !settleAmount || Number(settleAmount) <= 0) {
+                  toast.error('Please enter a valid amount');
+                  return;
+                }
+                setSubmitting(true);
+                try {
+                  await customerService.settlePayment(selectedCustomer.id, Number(settleAmount), settleMethod);
+                  toast.success('Payment settled successfully');
+                  setIsSettleModalOpen(false);
+                  fetchCustomers();
+                  if (isDetailsOpen) loadDetails(selectedCustomer);
+                } catch (error: any) {
+                  toast.error(error.message);
+                } finally {
+                  setSubmitting(false);
+                }
+              }} 
+              disabled={submitting} 
+              className="flex-1 sm:flex-none shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700 font-black italic"
+            >
+              {submitting ? 'Settling...' : 'Confirm Payment'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+           <div className="bg-slate-900 p-6 rounded-2xl text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-500/30 transition-all duration-700" />
+              <div className="relative">
+                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 italic">Current Outstanding</div>
+                 <div className="text-4xl font-black italic tracking-tighter">₹{selectedCustomer?.balance.toFixed(2)}</div>
+                 <div className="mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{selectedCustomer?.shop_name}</div>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Amount to Settle (₹)"
+                type="number"
+                value={settleAmount}
+                onChange={(e) => setSettleAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+              />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Payment Method</label>
+                <div className="grid grid-cols-3 gap-2">
+                   <button
+                     type="button"
+                     onClick={() => setSettleMethod('cash')}
+                     className={cn(
+                       "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2",
+                       settleMethod === 'cash' 
+                         ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm" 
+                         : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                     )}
+                   >
+                     <Banknote size={20} strokeWidth={settleMethod === 'cash' ? 2.5 : 2} />
+                     <span className="text-[9px] font-black uppercase tracking-widest">Cash</span>
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setSettleMethod('upi')}
+                     className={cn(
+                       "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2",
+                       settleMethod === 'upi' 
+                         ? "bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm" 
+                         : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                     )}
+                   >
+                     <QrCode size={20} strokeWidth={settleMethod === 'upi' ? 2.5 : 2} />
+                     <span className="text-[9px] font-black uppercase tracking-widest">UPI</span>
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setSettleMethod('card')}
+                     className={cn(
+                       "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2",
+                       settleMethod === 'card' 
+                         ? "bg-slate-50 border-slate-800 text-slate-900 shadow-sm" 
+                         : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                     )}
+                   >
+                     <CreditCard size={20} strokeWidth={settleMethod === 'card' ? 2.5 : 2} />
+                     <span className="text-[9px] font-black uppercase tracking-widest">Card</span>
+                   </button>
+                </div>
+              </div>
+           </div>
+
+           <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-3">
+              <Receipt className="text-amber-600 shrink-0" size={20} />
+              <div className="text-[10px] font-bold text-amber-900 uppercase leading-relaxed tracking-tight">
+                This payment will be applied to the oldest outstanding bills first (FIFO settlement).
+              </div>
+           </div>
         </div>
       </Modal>
     </div>
