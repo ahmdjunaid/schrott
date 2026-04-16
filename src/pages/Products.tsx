@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { productService, categoryService, brandService } from '../services/inventory';
 import { Button, Input, Card, Modal, Table, Badge, Pagination } from '../components/UI';
-import { Plus, Edit2, Trash2, Search, Package, Tag, Building2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Package, Tag, Building2, Eye, Info } from 'lucide-react';
 import { Product, Category, Brand } from '../types';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,10 @@ export function Products() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [selectedProductForBatch, setSelectedProductForBatch] = useState<Product | null>(null);
+  const [productBatches, setProductBatches] = useState<any[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -93,6 +97,21 @@ export function Products() {
       } catch (error: any) {
         toast.error(error.message);
       }
+    }
+  };
+
+  const handleViewBatches = async (product: Product) => {
+    setSelectedProductForBatch(product);
+    setLoadingBatches(true);
+    setIsBatchModalOpen(true);
+    try {
+      const batches = await productService.getAvailableBatches(product.id);
+      setProductBatches(batches);
+    } catch (error) {
+      console.error('Error fetching batches:', error);
+      toast.error('Failed to load batch details');
+    } finally {
+      setLoadingBatches(false);
     }
   };
 
@@ -191,10 +210,17 @@ export function Products() {
                   </td>
                   <td className="px-6 py-4">
                      <div className="flex items-center gap-1">
-                        <button onClick={() => handleEdit(p)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
+                        <button 
+                          onClick={() => handleViewBatches(p)} 
+                          className="p-2 text-slate-400 hover:bg-slate-100 hover:text-primary rounded-lg transition-all"
+                          title="View Batch Details"
+                        >
+                          <Eye size={16} strokeWidth={2.5} />
+                        </button>
+                        <button onClick={() => handleEdit(p)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all" title="Edit Product">
                           <Edit2 size={16} strokeWidth={2.5} />
                         </button>
-                        <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">
+                        <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all" title="Delete Product">
                           <Trash2 size={16} strokeWidth={2.5} />
                         </button>
                      </div>
@@ -289,6 +315,100 @@ export function Products() {
             onChange={(e) => setFormData({ ...formData, cgst: parseFloat(e.target.value) })}
           />
         </form>
+      </Modal>
+
+      {/* Batch Intelligence Modal */}
+      <Modal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        title={selectedProductForBatch ? `Batch Intelligence: ${selectedProductForBatch.name}` : 'Batch Details'}
+        className="max-w-4xl"
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-inner">
+               <Info size={14} className="text-primary" strokeWidth={2.5} />
+               <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic outline-none">Total Value is based on purchase price</span>
+            </div>
+            <Button variant="ghost" onClick={() => setIsBatchModalOpen(false)}>Close Terminal</Button>
+          </div>
+        }
+      >
+        {loadingBatches ? (
+           <div className="flex flex-col items-center py-24">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4 shadow-sm"></div>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] italic">Synchronizing Batch Data...</p>
+           </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xl shadow-slate-200/20">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] italic">
+                    <th className="px-4 py-3">Source / Supplier</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3 text-center">Batch Stock</th>
+                    <th className="px-4 py-3 text-right">Purchase (₹)</th>
+                    <th className="px-4 py-3 text-right">Selling (₹)</th>
+                    <th className="px-4 py-3 text-right">Total Val (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 italic">
+                  {productBatches.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-16 text-center text-slate-400 font-bold uppercase tracking-[0.4em] text-[10px] grayscale opacity-50">
+                        No Active Batches Found for this Asset
+                      </td>
+                    </tr>
+                  ) : (
+                    productBatches.map((batch) => (
+                      <tr key={batch.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-4 py-4">
+                          <div className="text-[11px] font-black text-slate-900 uppercase tracking-tighter leading-none">{batch.purchase?.supplier?.shop_name || 'MANUAL STOCK'}</div>
+                          <div className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-widest leading-none">Record: {batch.id.slice(0, 8)}</div>
+                        </td>
+                        <td className="px-4 py-4">
+                           <div className="text-[10px] font-bold text-slate-500 max-w-[140px] truncate uppercase">{batch.description || 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <span className={cn(
+                             "px-2 py-1 rounded-md text-[10px] font-black border",
+                             batch.remaining_qty <= 5 ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-slate-100 text-slate-600 border-slate-200"
+                          )}>
+                             {batch.remaining_qty} UNITS
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                           <div className="text-xs font-black text-slate-900 tracking-tighter italic">₹{batch.purchase_price.toFixed(2)}</div>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                           <div className="text-xs font-black text-emerald-600 tracking-tighter italic">₹{selectedProductForBatch?.selling_price.toFixed(2)}</div>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                           <div className="text-xs font-black text-slate-900 tracking-tighter bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">₹{(batch.remaining_qty * batch.purchase_price).toFixed(2)}</div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {selectedProductForBatch && (
+              <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                 <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Aggregate Inventory Stock</span>
+                    <div className="text-2xl font-black text-slate-900 italic tracking-tighter leading-none mt-1">{selectedProductForBatch.stock} UNITS</div>
+                 </div>
+                 <div className="text-right">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Asset Valuation</span>
+                    <div className="text-2xl font-black text-primary italic tracking-tighter leading-none mt-1">
+                      ₹{productBatches.reduce((sum, b) => sum + (b.remaining_qty * b.purchase_price), 0).toFixed(2)}
+                    </div>
+                 </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );
