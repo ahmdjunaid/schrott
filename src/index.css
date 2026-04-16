@@ -1,31 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --bg-primary: #f8fafc;
-  --sidebar-active: #eff6ff;
-  --sidebar-text-active: #2563eb;
+  --font-sans: "Inter", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --bg-primary: #f9fafb;
+  --sidebar-active: #f1f5f9;
+  --sidebar-text-active: #4F46E5;
 }
 
 @theme {
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
   --color-secondary: #64748b;
-  --color-bg-page: #f8fafc;
+  --color-bg-page: #f9fafb;
   
-  /* Architect Admin Specific Colors */
-  --color-badge-active-bg: #f0fdf4;
-  --color-badge-active-text: #16a34a;
+  /* Modern Dashboard Palette */
+  --color-badge-active-bg: #ecfdf5;
+  --color-badge-active-text: #059669;
   --color-badge-pending-bg: #fff7ed;
-  --color-badge-pending-text: #ea580c;
-  --color-badge-inactive-bg: #f8fafc;
-  --color-badge-inactive-text: #64748b;
+  --color-badge-pending-text: #d97706;
+  --color-badge-inactive-bg: #f3f4f6;
+  --color-badge-inactive-text: #6b7280;
 }
 
 @layer base {
   body {
     font-family: var(--font-sans);
-    @apply bg-[var(--bg-primary)] text-slate-700 antialiased;
+    @apply bg-[var(--bg-primary)] text-slate-700 antialiased selection:bg-primary/10 selection:text-primary;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4 {
@@ -53,4 +54,40 @@
 
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
+}
+
+@media print {
+  @page {
+    size: auto;
+    margin: 5mm;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #printable-invoice, #printable-invoice * {
+    visibility: visible;
+  }
+  #printable-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0 !important;
+    border: none !important;
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  /* Preserve colors/backgrounds in print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

@@ -3,6 +3,7 @@ export interface Category {
   name: string;
   description?: string;
   is_blocked: boolean;
+  product_count?: number;
   created_at: string;
 }
 
@@ -11,13 +12,14 @@ export interface Brand {
   name: string;
   description?: string;
   is_blocked: boolean;
+  product_count?: number;
   created_at: string;
 }
 
 export interface Product {
   id: string;
   name: string;
-  purchase_price: number;
+  purchase_price?: number; // Optional/Deprecated for dynamic pricing
   selling_price: number;
   sgst: number;
   cgst: number;
@@ -56,9 +58,11 @@ export interface Bill {
 export interface BillItem {
   id: string;
   bill_id: string;
-  product_id?: string;
+  product_id: string;
+  purchase_item_id?: string; // New field for batch tracking
   quantity: number;
-  price: number;
+  price: number; // Selling price
+  purchase_price?: number; // Snapshot of cost at time of sale
   sgst: number;
   cgst: number;
   total: number;
@@ -87,6 +91,7 @@ export interface Supplier {
   phone: string;
   shop_name: string;
   location?: string;
+  wallet_balance?: number;
   created_at: string;
 }
 
@@ -106,9 +111,13 @@ export interface PurchaseItem {
   purchase_id: string;
   product_id?: string;
   quantity: number;
-  price: number;
+  remaining_qty: number; // For batch stock tracking
+  purchase_price: number;
+  sgst: number;
+  cgst: number;
   tax: number;
   total: number;
+  description?: string;
   created_at: string;
   product?: {
     name: string;

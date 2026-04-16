@@ -56,5 +56,22 @@ export const billingService = {
       .single();
     if (error) throw error;
     return data as BillDetails;
+  },
+
+  getCustomerOldBalance: async (customerId: string, upToBillId?: string): Promise<number> => {
+    let query = supabase
+      .from('bills')
+      .select('balance_amount')
+      .eq('customer_id', customerId);
+    
+    if (upToBillId) {
+      // Find bills created before or same time, but exclude THIS one specifically for "Previous Balance"
+      query = query.neq('id', upToBillId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return (data || []).reduce((sum, b) => sum + (Number(b.balance_amount) || 0), 0);
   }
 };

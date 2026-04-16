@@ -2,7 +2,19 @@ import { supabase } from './supabaseClient';
 import { Bill, DashboardStats, Purchase } from '../types';
 
 export const dashboardService = {
-  getStats: async (): Promise<DashboardStats> => {
+  getStats: async (startDate?: string, endDate?: string): Promise<DashboardStats> => {
+    let salesQuery = supabase.from('bills').select('total_amount, paid_amount');
+    let purchaseQuery = supabase.from('purchases').select('total_amount, paid_amount');
+
+    if (startDate) {
+      salesQuery = salesQuery.gte('created_at', startDate);
+      purchaseQuery = purchaseQuery.gte('created_at', startDate);
+    }
+    if (endDate) {
+      salesQuery = salesQuery.lte('created_at', endDate);
+      purchaseQuery = purchaseQuery.lte('created_at', endDate);
+    }
+
     const [
       { count: productsCount },
       { count: lowStockCount },
@@ -12,9 +24,9 @@ export const dashboardService = {
     ] = await Promise.all([
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('products').select('*', { count: 'exact', head: true }).lte('stock', 5),
-      supabase.from('bills').select('total_amount, paid_amount'),
+      salesQuery,
       supabase.from('customers').select('*', { count: 'exact', head: true }),
-      supabase.from('purchases').select('total_amount, paid_amount')
+      purchaseQuery
     ]);
 
     const totalSales = salesData?.reduce((sum: number, bill: any) => sum + parseFloat(bill.total_amount), 0) || 0;

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { productService } from '../services/inventory';
-import { Button, Input, Card, Modal, Table, Badge } from '../components/UI';
+import { productService, categoryService, brandService } from '../services/inventory';
+import { Button, Input, Card, Modal, Table, Badge, Pagination } from '../components/UI';
 import { Plus, Edit2, Trash2, Search, Package, Tag, Building2 } from 'lucide-react';
 import { Product, Category, Brand } from '../types';
+import toast from 'react-hot-toast';
 
 export function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -13,10 +14,11 @@ export function Products() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const [formData, setFormData] = useState({
     name: '',
-    purchase_price: 0,
     selling_price: 0,
     sgst: 0,
     cgst: 0,
@@ -34,8 +36,8 @@ export function Products() {
     try {
       const [pData, cData, bData] = await Promise.all([
         productService.getAll(),
-        productService.getAllCategories(),
-        productService.getAllBrands()
+        categoryService.getAll(),
+        brandService.getAll()
       ]);
       setProducts(pData);
       setCategories(cData);
@@ -59,8 +61,9 @@ export function Products() {
       setIsModalOpen(false);
       fetchData();
       resetForm();
+      toast.success(editingProduct ? 'Product updated' : 'Product added');
     } catch (error: any) {
-      alert(error.message);
+      toast.error(error.message);
     } finally {
       setSubmitting(false);
     }
@@ -70,11 +73,10 @@ export function Products() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
-      purchase_price: product.purchase_price,
-      selling_price: product.selling_price,
-      sgst: product.sgst,
-      cgst: product.cgst,
-      stock: product.stock,
+      selling_price: product.selling_price || 0,
+      sgst: product.sgst || 0,
+      cgst: product.cgst || 0,
+      stock: product.stock || 0,
       category_id: product.category_id || '',
       brand_id: product.brand_id || '',
       is_active: product.is_active
@@ -87,8 +89,9 @@ export function Products() {
       try {
         await productService.delete(id);
         fetchData();
+        toast.success('Product deleted');
       } catch (error: any) {
-        alert(error.message);
+        toast.error(error.message);
       }
     }
   };
@@ -96,7 +99,6 @@ export function Products() {
   const resetForm = () => {
     setFormData({
       name: '',
-      purchase_price: 0,
       selling_price: 0,
       sgst: 0,
       cgst: 0,
@@ -113,128 +115,149 @@ export function Products() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-bold"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="space-y-8 py-2">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Products</h2>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Manage your product catalog and stock levels</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }} className="gap-2">
-          <Plus size={18} />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative group min-w-[300px] hidden sm:block">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+            <input
+              type="text"
+              placeholder="Filter products by name..."
+              className="w-full h-11 pl-11 pr-4 bg-white border border-slate-200 focus:border-primary/40 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/5 shadow-sm outline-none font-medium"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <Button onClick={() => { resetForm(); setIsModalOpen(true); }} className="h-11 shadow-lg shadow-primary/20">
+            <Plus size={18} strokeWidth={2.5} />
+            Add Product
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <Card className="p-0 border-slate-200 shadow-md">
         {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="flex justify-center p-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <Table headers={['Product Information', 'Stock', 'Pricing', 'Status', 'Actions']}>
-            {filteredProducts.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-900">{p.name}</div>
-                  <div className="flex items-center gap-4 mt-1">
-                    {p.category && (
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        <Tag size={12} />
-                        {p.category.name}
-                      </span>
-                    )}
-                    {p.brand && (
-                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        <Building2 size={12} />
-                        {p.brand.name}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-bold",
-                    p.stock <= 5 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-700"
-                  )}>
-                    <Package size={14} />
-                    {p.stock} Units
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-bold text-slate-900">₹{p.selling_price}</div>
-                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">MSRP: ₹{p.purchase_price}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <Badge status={p.is_active ? 'ACTIVE' : 'INACTIVE'} />
-                </td>
-                <td className="px-6 py-4 flex gap-2">
-                  <button onClick={() => handleEdit(p)} className="p-1.5 text-slate-400 hover:text-primary transition-colors">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <Table headers={['Product Name', 'Stock Level', 'Selling Price', 'Status', 'Actions']}>
+              {filteredProducts
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="font-black text-slate-900 leading-tight">{p.name}</div>
+                    <div className="flex items-center gap-4 mt-1.5">
+                      {p.category && (
+                        <span className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
+                          <Tag size={10} className="text-slate-300" />
+                          {p.category.name}
+                        </span>
+                      )}
+                      {p.brand && (
+                        <span className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
+                          <Building2 size={10} className="text-slate-300" />
+                          {p.brand.name}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black shadow-sm border",
+                      p.stock <= 5 
+                        ? "bg-rose-50 text-rose-600 border-rose-100" 
+                        : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    )}>
+                      <Package size={12} strokeWidth={3} />
+                      {p.stock} Units
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                     <div className="text-sm font-black text-slate-900 italic">₹{p.selling_price?.toFixed(2) || '0.00'}</div>
+                     <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Price</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge status={p.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                  </td>
+                  <td className="px-6 py-4">
+                     <div className="flex items-center gap-1">
+                        <button onClick={() => handleEdit(p)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
+                          <Edit2 size={16} strokeWidth={2.5} />
+                        </button>
+                        <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">
+                          <Trash2 size={16} strokeWidth={2.5} />
+                        </button>
+                     </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredProducts.length === 0 && (
+                <tr>
+                   <td colSpan={5} className="px-6 py-16 text-center text-slate-400 font-bold italic text-sm">No products found.</td>
+                </tr>
+              )}
+            </Table>
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredProducts.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </>
         )}
       </Card>
 
-      <Modal
+       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingProduct ? 'Edit Product' : 'New Product'}
+        title={editingProduct ? 'Edit Product' : 'Add New Product'}
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Saving...' : (editingProduct ? 'Update Product' : 'Create Product')}
+          <div className="flex gap-3 w-full sm:w-auto">
+             <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={submitting} className="flex-1 sm:flex-none shadow-lg shadow-primary/20">
+              {submitting ? 'Saving...' : (editingProduct ? 'Save Changes' : 'Add Product')}
             </Button>
-          </>
+          </div>
         }
       >
-        <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleSubmit}>
-          <div className="md:col-span-2">
+        <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
+           <div className="md:col-span-2">
             <Input
               label="Product Name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="iPhone 15 Pro"
+              placeholder="e.g. Master Grade Steel 316L"
               required
             />
           </div>
-          <Input
-            label="Purchase Price"
-            type="number"
-            value={formData.purchase_price}
-            onChange={(e) => setFormData({ ...formData, purchase_price: parseFloat(e.target.value) })}
-            required
-          />
-          <Input
-            label="Selling Price"
+           <Input
+            label="Selling Price (₹)"
             type="number"
             value={formData.selling_price}
             onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) })}
-            required
+            placeholder="0.00"
           />
-          <Input
-            label="Stock"
+           <Input
+            label="Initial Stock"
             type="number"
             value={formData.stock}
             onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
             required
+            disabled={!!editingProduct}
           />
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-slate-500 ml-1">Category</label>
+           <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
             <select
-              className="w-full h-11 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-primary/50 focus:ring-4 focus:ring-primary/5 outline-none transition-all"
+              className="w-full h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-black focus:ring-4 focus:ring-primary/10 transition-all outline-none"
               value={formData.category_id}
               onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
             >
@@ -242,10 +265,10 @@ export function Products() {
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-semibold text-slate-500 ml-1">Brand</label>
+           <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brand</label>
             <select
-              className="w-full h-11 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-primary/50 focus:ring-4 focus:ring-primary/5 outline-none transition-all"
+              className="w-full h-11 px-4 bg-white border border-slate-200 rounded-lg text-sm font-black focus:ring-4 focus:ring-primary/10 transition-all outline-none"
               value={formData.brand_id}
               onChange={(e) => setFormData({ ...formData, brand_id: e.target.value })}
             >
@@ -253,13 +276,13 @@ export function Products() {
               {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
-          <Input
+           <Input
             label="SGST (%)"
             type="number"
             value={formData.sgst}
             onChange={(e) => setFormData({ ...formData, sgst: parseFloat(e.target.value) })}
           />
-          <Input
+           <Input
             label="CGST (%)"
             type="number"
             value={formData.cgst}
@@ -271,7 +294,6 @@ export function Products() {
   );
 }
 
-// Utility function for conditional classes used in Products.tsx
 function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(' ');
 }

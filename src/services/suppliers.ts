@@ -15,7 +15,8 @@ export const supplierService = {
     
     return data.map((s: any) => ({
       ...s,
-      balance: s.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.balance_amount), 0) || 0
+      balance: s.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.balance_amount), 0) || 0,
+      wallet_balance: s.wallet_balance || 0
     }));
   },
 
@@ -55,6 +56,15 @@ export const supplierService = {
       .from('suppliers')
       .delete()
       .eq('id', id);
+    if (error) throw error;
+  },
+
+  settleBalance: async (supplierId: string, amount: number, method: string): Promise<void> => {
+    const { error } = await supabase.rpc('settle_supplier_balance', {
+      p_supplier_id: supplierId,
+      p_amount: amount,
+      p_method: method
+    });
     if (error) throw error;
   }
 };

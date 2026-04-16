@@ -1,19 +1,58 @@
 import { supabase } from './supabaseClient';
-import { Category, Brand, Product } from '../types';
+import { Product, Category, Brand, PurchaseItem } from '../types';
 
 export const productService = {
-  // Products
   getAll: async (): Promise<Product[]> => {
     const { data, error } = await supabase
       .from('products')
       .select(`
         *,
-        category:categories(id, name),
-        brand:brands(id, name)
+        categories!category_id(name),
+        brands!brand_id(name)
       `)
       .order('name', { ascending: true });
-    if (error) throw error;
-    return data as Product[];
+    
+    if (error) {
+      console.error('Products fetch error:', error);
+      throw error;
+    }
+    
+    return (data || []).map((p: any) => ({
+      ...p,
+      category: p.categories,
+      brand: p.brands
+    })) as Product[];
+  },
+
+  getAvailableBatches: async (productId: string): Promise<PurchaseItem[]> => {
+    const { data, error } = await supabase
+      .from('purchase_items')
+      .select(`
+        *,
+        purchases!purchase_id (
+          suppliers!supplier_id (
+            shop_name
+          )
+        )
+      `)
+      .eq('product_id', productId)
+      .gt('remaining_qty', 0)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Supabase batch fetch error:', error);
+      throw error;
+    }
+    
+    // Transform the data to match the expected interface if using direct join
+    const transformed = (data || []).map((item: any) => ({
+      ...item,
+      purchase: item.purchases ? {
+        supplier: item.purchases.suppliers
+      } : null
+    }));
+
+    return transformed as any[];
   },
 
   create: async (product: Omit<Product, 'id' | 'created_at'>): Promise<Product> => {
@@ -43,19 +82,23 @@ export const productService = {
       .delete()
       .eq('id', id);
     if (error) throw error;
-  },
+  }
+};
 
-  // Categories
-  getAllCategories: async (): Promise<Category[]> => {
+export const categoryService = {
+  getAll: async (): Promise<Category[]> => {
     const { data, error } = await supabase
       .from('categories')
-      .select('*')
+      .select('*, products(count)')
       .order('name', { ascending: true });
     if (error) throw error;
-    return data as Category[];
+    return (data || []).map((c: any) => ({
+      ...c,
+      product_count: c.products?.[0]?.count || 0
+    })) as Category[];
   },
 
-  createCategory: async (category: Omit<Category, 'id' | 'created_at'>): Promise<Category> => {
+  create: async (category: Omit<Category, 'id' | 'created_at'>): Promise<Category> => {
     const { data, error } = await supabase
       .from('categories')
       .insert([category])
@@ -64,8 +107,8 @@ export const productService = {
     if (error) throw error;
     return data as Category;
   },
-
-  updateCategory: async (id: string, category: Partial<Category>): Promise<Category> => {
+  
+  update: async (id: string, category: Partial<Category>): Promise<Category> => {
     const { data, error } = await supabase
       .from('categories')
       .update(category)
@@ -76,27 +119,39 @@ export const productService = {
     return data as Category;
   },
 
-  // Brands
-  getAllBrands: async (): Promise<Brand[]> => {
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+};
+
+export const brandService = {
+  getAll: async (): Promise<Brand[]> => {
     const { data, error } = await supabase
       .from('brands')
-      .select('*')
+      .select('*, products(count)')
       .order('name', { ascending: true });
     if (error) throw error;
-    return data as Brand[];
+    return (data || []).map((b: any) => ({
+      ...b,
+      product_count: b.products?.[0]?.count || 0
+    })) as Brand[];
   },
 
-  createBrand: async (brand: Omit<Brand, 'id' | 'created_at'>): Promise<Brand> => {
+  create: async (brand: Omit<Brand, 'id' | 'created_at'>): Promise<Brand> => {
     const { data, error } = await supabase
       .from('brands')
       .insert([brand])
       .select()
       .single();
     if (error) throw error;
-    return brand as Brand;
+    return data as Brand;
   },
 
-  updateBrand: async (id: string, brand: Partial<Brand>): Promise<Brand> => {
+  update: async (id: string, brand: Partial<Brand>): Promise<Brand> => {
     const { data, error } = await supabase
       .from('brands')
       .update(brand)
@@ -105,5 +160,13 @@ export const productService = {
       .single();
     if (error) throw error;
     return data as Brand;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('brands')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   }
 };

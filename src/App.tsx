@@ -28,9 +28,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return session ? <>{children}</> : <Navigate to="/login" />;
 }
 
+import { Toaster } from 'react-hot-toast';
+
 export function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#1e293b', color: '#fff', fontSize: '12px', fontWeight: 'bold' } }} />
       <Router>
         <Routes>
           {/* Public Routes */}

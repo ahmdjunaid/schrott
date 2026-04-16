@@ -27,65 +27,76 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-slate-50 to-slate-50">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-4">
-          <div className="inline-flex w-16 h-16 bg-primary rounded-2xl items-center justify-center text-white shadow-xl shadow-primary/30 mb-2">
-            <LogIn size={32} />
-          </div>
-          <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Welcome Back</h1>
-          <p className="text-slate-500 font-medium">Please enter your details to sign in</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-slate-50 to-slate-50">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+           <div className="inline-flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
+                 <LogIn size={20} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black text-primary tracking-tighter">Schrott.<span className="text-slate-400">Billing</span></h1>
+           </div>
+           <p className="text-slate-500 font-bold text-sm">Professional Billing & Inventory Management</p>
         </div>
 
-        <Card className="p-10 border-slate-200/60 shadow-2xl shadow-slate-200/50">
-          <form onSubmit={handleLogin} className="space-y-6">
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="admin@architect.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        <Card className="shadow-2xl shadow-slate-200/60 border-slate-200/60">
+          <div className="space-y-6">
             <div className="space-y-1">
-              <Input
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <div className="flex justify-end px-1">
-                <Link 
-                  to="/forgot-password" 
-                  className="text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
-                >
-                  Forgot Password?
-                </Link>
-              </div>
+               <h2 className="text-xl font-bold text-slate-900">Sign In</h2>
+               <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Enter credentials to your account</p>
             </div>
 
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold text-center">
-                {error}
+            <form onSubmit={handleLogin} className="space-y-5">
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <div className="space-y-2">
+                <Input
+                  label="Password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <div className="flex justify-end px-1">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-[10px] font-black text-primary hover:text-primary-hover transition-colors uppercase tracking-widest"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
-            )}
 
-            <Button 
-              type="submit" 
-              className="w-full py-4 text-base" 
-              disabled={loading}
-              icon={loading ? undefined : LogIn}
-            >
-              {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
-            </Button>
-          </form>
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-[11px] font-bold text-center animate-in fade-in slide-in-from-top-1">
+                  {error}
+                </div>
+              )}
+
+              <Button 
+                type="submit" 
+                className="w-full py-4 rounded-lg shadow-lg shadow-primary/20" 
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+          </div>
         </Card>
 
-        <p className="text-center text-slate-400 text-xs font-bold uppercase tracking-widest mt-8">
-          Architect Admin v1.0 • Built with Precision
-        </p>
+        <div className="mt-8 flex flex-col items-center gap-4">
+           <p className="text-center text-slate-400 text-[9px] font-black uppercase tracking-[0.3em]">
+             Schrott Billing v2.0
+           </p>
+           <div className="h-px w-12 bg-slate-200" />
+        </div>
       </div>
     </div>
   );

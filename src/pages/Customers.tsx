@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { customerService } from '../services/customers';
-import { Button, Input, Card, Modal, Table, Badge } from '../components/UI';
+import { Button, Input, Card, Modal, Table, Badge, Avatar, Pagination, cn } from '../components/UI';
 import { Plus, Edit2, Trash2, Search, Phone, MapPin, Users, Eye, Receipt } from 'lucide-react';
 import { Customer } from '../types';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 export function Customers() {
   const [customers, setCustomers] = useState<(Customer & { balance: number })[]>([]);
@@ -16,6 +17,8 @@ export function Customers() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -65,8 +68,9 @@ export function Customers() {
       setIsModalOpen(false);
       fetchCustomers();
       resetForm();
+      toast.success(editingCustomer ? 'Customer updated' : 'Customer added');
     } catch (error: any) {
-      alert(error.message);
+      toast.error(error.message);
     } finally {
       setSubmitting(false);
     }
@@ -88,8 +92,9 @@ export function Customers() {
       try {
         await customerService.delete(id);
         fetchCustomers();
+        toast.success('Customer deleted');
       } catch (error: any) {
-        alert(error.message);
+        toast.error(error.message);
       }
     }
   };
@@ -106,59 +111,87 @@ export function Customers() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search customers..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-bold"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="space-y-8 py-2">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Customers</h2>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Manage your customers and track their balances</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }} className="gap-2">
-          <Plus size={18} />
-          Add Customer
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative group min-w-[300px] hidden sm:block">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+            <input
+              type="text"
+              placeholder="Filter by shop, phone or name..."
+              className="w-full h-11 pl-11 pr-4 bg-white border border-slate-200 focus:border-primary/40 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/5 shadow-sm outline-none font-medium"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+          <Button onClick={() => { resetForm(); setIsModalOpen(true); }} className="h-11 shadow-lg shadow-primary/20">
+            <Plus size={18} strokeWidth={2.5} />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <Card className="p-0 border-slate-200 shadow-md">
         {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="flex justify-center p-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <Table headers={['Shop Name', 'Contact', 'Outstanding Balance', 'Actions']}>
-            {filteredCustomers.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-900">{c.shop_name}</div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-widest">{c.location || '-'}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-slate-600">{c.phone}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className={`font-bold ${c.balance > 0 ? 'text-red-500' : 'text-slate-400'}`}>
-                    ₹{c.balance.toFixed(2)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 flex gap-2">
-                  <button onClick={() => loadDetails(c)} className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors" title="View Details">
-                    <Eye size={18} />
-                  </button>
-                  <button onClick={() => handleEdit(c)} className="p-1.5 text-slate-400 hover:text-primary transition-colors">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <Table headers={['Shop Name', 'Phone', 'Total Balance', 'Actions']}>
+              {filteredCustomers
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((c) => (
+                  <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="font-black text-slate-900 leading-tight">{c.shop_name}</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{c.location || 'Local'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                         <Phone size={12} className="text-slate-300" />
+                         {c.phone}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={cn("text-sm font-black italic", c.balance > 0 ? 'text-rose-600' : 'text-slate-300')}>
+                        ₹{c.balance.toFixed(2)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                       <div className="flex items-center gap-1">
+                          <button onClick={() => loadDetails(c)} className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all" title="View Details">
+                            <Eye size={16} strokeWidth={2.5} />
+                          </button>
+                          <button onClick={() => handleEdit(c)} className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all">
+                            <Edit2 size={16} strokeWidth={2.5} />
+                          </button>
+                          <button onClick={() => handleDelete(c.id)} className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">
+                            <Trash2 size={16} strokeWidth={2.5} />
+                          </button>
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+              {filteredCustomers.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-16 text-center text-slate-400 font-bold italic text-sm">No client entities matching your search criteria.</td>
+                </tr>
+              )}
+            </Table>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredCustomers.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </>
         )}
       </Card>
 
@@ -166,40 +199,47 @@ export function Customers() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingCustomer ? 'Edit Customer' : 'New Customer'}
+        title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Saving...' : (editingCustomer ? 'Update Customer' : 'Create Customer')}
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={submitting} className="flex-1 sm:flex-none shadow-lg shadow-primary/20">
+              {submitting ? 'Saving...' : (editingCustomer ? 'Save Changes' : 'Add Customer')}
             </Button>
-          </>
+          </div>
         }
       >
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="grid grid-cols-1 md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
+          <div className="md:col-span-2">
+            <Input
+              label="Shop Name"
+              value={formData.shop_name}
+              onChange={(e) => setFormData({ ...formData, shop_name: e.target.value })}
+              placeholder="e.g. Standard Trading Corp"
+              required
+            />
+          </div>
           <Input
-            label="Shop Name"
-            value={formData.shop_name}
-            onChange={(e) => setFormData({ ...formData, shop_name: e.target.value })}
-            placeholder="Doe Enterprises"
-            required
-          />
-          <Input
-            label="Contact Person (Optional)"
+            label="Owner Name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="Official identity"
           />
           <Input
             label="Phone Number"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            placeholder="+91..."
             required
           />
-          <Input
-            label="Location"
-            value={formData.location}
-            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          />
+          <div className="md:col-span-2">
+            <Input
+              label="Location / Address"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="Full address"
+            />
+          </div>
         </form>
       </Modal>
 
@@ -207,54 +247,66 @@ export function Customers() {
       <Modal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        title={`${selectedCustomer?.shop_name} - Transaction History`}
+        title="Customer Details"
         className="max-w-4xl"
       >
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</div>
-              <div className="text-sm font-bold text-slate-900 mt-1">{selectedCustomer?.phone}</div>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm col-span-2">
+               <div className="flex items-center gap-3">
+                  <Avatar fallback={selectedCustomer?.shop_name || 'CL'} size="lg" />
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedCustomer?.shop_name}</h3>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-0.5">
+                       <MapPin size={10} /> {selectedCustomer?.location || 'Regional Terminal'}
+                    </div>
+                  </div>
+               </div>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</div>
-              <div className="text-sm font-bold text-slate-900 mt-1">{selectedCustomer?.location || '-'}</div>
+            <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
+               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Registered Contact</div>
+               <div className="text-sm font-bold text-slate-900 mt-2">{selectedCustomer?.phone}</div>
             </div>
-            <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-              <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Total Outstanding</div>
-              <div className="text-xl font-black text-red-600 mt-1">₹{selectedCustomer?.balance.toFixed(2)}</div>
+            <div className="p-5 bg-rose-50 border border-rose-100 rounded-xl">
+               <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest leading-none">Total Balance</div>
+               <div className="text-2xl font-black text-rose-600 mt-2 italic">₹{selectedCustomer?.balance.toFixed(2)}</div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Receipt size={16} />
-              Recent Bills
-            </h3>
+            <div className="px-2 space-y-0.5">
+               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-tight">
+                 <Receipt size={16} className="text-primary" />
+                 Bill History
+               </h3>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">View recent bills and payments</p>
+            </div>
             {loadingDetails ? (
-              <div className="flex justify-center p-8">
+              <div className="flex justify-center p-16">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <Table headers={['Date', 'Bill #', 'Total', 'Paid', 'Balance', 'Status']}>
-                {transactions.map(t => (
-                  <tr key={t.id} className="text-xs">
-                    <td className="px-6 py-4 text-slate-500">{format(new Date(t.created_at), 'dd MMM yyyy')}</td>
-                    <td className="px-6 py-4 font-bold text-primary">INV-{t.id.slice(0, 8).toUpperCase()}</td>
-                    <td className="px-6 py-4 font-bold">₹{t.total_amount}</td>
-                    <td className="px-6 py-4 text-green-600 font-bold">₹{t.paid_amount}</td>
-                    <td className="px-6 py-4 text-red-600 font-bold">₹{t.balance_amount}</td>
-                    <td className="px-6 py-4">
-                      <Badge status={t.status} />
-                    </td>
-                  </tr>
-                ))}
-                {transactions.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">No transaction history found.</td>
-                  </tr>
-                )}
-              </Table>
+              <Card className="p-0 border-slate-200 overflow-hidden shadow-sm">
+                 <Table headers={['Date', 'Bill No', 'Total Amount', 'Amount Paid', 'Balance', 'Status']}>
+                  {transactions.map(t => (
+                    <tr key={t.id} className="text-xs group hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-slate-500 font-bold">{format(new Date(t.created_at), 'dd MMM yyyy')}</td>
+                      <td className="px-6 py-4 font-black text-slate-900">#BILL-{t.id.slice(0, 8).toUpperCase()}</td>
+                      <td className="px-6 py-4 font-black text-slate-900 text-sm">₹{t.total_amount.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-emerald-600 font-black">₹{t.paid_amount.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-rose-600 font-black">₹{t.balance_amount.toFixed(2)}</td>
+                      <td className="px-6 py-4">
+                        <Badge status={t.status} />
+                      </td>
+                    </tr>
+                  ))}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-10 py-16 text-center text-slate-300 font-bold uppercase tracking-widest italic text-[10px]">No active billing cycles discovered</td>
+                    </tr>
+                  )}
+                </Table>
+              </Card>
             )}
           </div>
         </div>
