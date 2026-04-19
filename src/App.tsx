@@ -13,6 +13,8 @@ import { Billing } from './pages/Billing';
 import { Login } from './pages/Login';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { UpdatePassword } from './pages/UpdatePassword';
+import { CustomerDetails } from './pages/CustomerDetails';
+import { SupplierDetails } from './pages/SupplierDetails';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -48,7 +50,9 @@ export function App() {
             <Route path="inventory/categories" element={<Categories />} />
             <Route path="inventory/brands" element={<Brands />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="customers/:id" element={<CustomerDetails />} />
             <Route path="suppliers" element={<Suppliers />} />
+            <Route path="suppliers/:id" element={<SupplierDetails />} />
             <Route path="billing" element={<Billing />} />
             <Route path="purchases" element={<Purchases />} />
           </Route>

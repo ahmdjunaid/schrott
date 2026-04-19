@@ -27,7 +27,6 @@ export function Products() {
     selling_price: 0,
     sgst: 0,
     cgst: 0,
-    stock: 0,
     category_id: '',
     brand_id: '',
     is_active: true
@@ -81,7 +80,6 @@ export function Products() {
       selling_price: product.selling_price || 0,
       sgst: product.sgst || 0,
       cgst: product.cgst || 0,
-      stock: product.stock || 0,
       category_id: product.category_id || '',
       brand_id: product.brand_id || '',
       is_active: product.is_active
@@ -125,7 +123,7 @@ export function Products() {
       selling_price: 0,
       sgst: 0,
       cgst: 0,
-      stock: 0,
+      cgst: 0,
       category_id: '',
       brand_id: '',
       is_active: true
@@ -275,14 +273,6 @@ export function Products() {
             value={formData.selling_price}
             onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) })}
             placeholder="0.00"
-          />
-           <Input
-            label="Initial Stock"
-            type="number"
-            value={formData.stock}
-            onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
-            required
-            disabled={!!editingProduct}
           />
            <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>

@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supplierService } from '../services/suppliers';
 import { Button, Input, Card, Modal, Table, Badge, Avatar, Pagination, cn } from '../components/UI';
-import { Plus, Edit2, Trash2, Search, Phone, MapPin, Truck, Eye, ShoppingBag, Wallet, Receipt } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Phone, MapPin, Truck, Eye, ShoppingBag, Wallet, Receipt, Banknote } from 'lucide-react';
 import { Supplier } from '../types';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { confirmToast } from '../utils/toast';
 
 export function Suppliers() {
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<(Supplier & { balance: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,18 +51,8 @@ export function Suppliers() {
     }
   };
 
-  const loadDetails = async (supplier: Supplier & { balance: number }) => {
-    setSelectedSupplier(supplier);
-    setIsDetailsOpen(true);
-    setLoadingDetails(true);
-    try {
-      const data = await supplierService.getTransactions(supplier.id);
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setLoadingDetails(false);
-    }
+  const viewLedger = (id: string) => {
+    navigate(`/suppliers/${id}`);
   };
 
   const handleSettle = async () => {
@@ -71,15 +63,6 @@ export function Suppliers() {
       setSettleAmount(0);
       setIsSettleModalOpen(false);
       fetchSuppliers(); // Refresh list balances
-      if (isDetailsOpen) {
-         // Refresh details if open
-         const data = await supplierService.getTransactions(selectedSupplier.id);
-         setTransactions(data);
-         // Find updated supplier data to refresh the "To Be Paid" card
-         const allSuppliers = await supplierService.getAll();
-         const updated = allSuppliers.find(s => s.id === selectedSupplier.id);
-         if (updated) setSelectedSupplier(updated);
-      }
       toast.success('Balance settled successfully!');
     } catch (error: any) {
       toast.error(error.message);
@@ -180,7 +163,7 @@ export function Suppliers() {
           </div>
         ) : (
           <>
-            <Table headers={['Supplier Name', 'Phone', 'Total Balance', 'Wallet Balance', 'Actions']}>
+            <Table headers={['Supplier Name', 'Phone', 'Total Balance', 'Wallet Credits', 'Actions']}>
               {filteredSuppliers
                 .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                 .map((s) => (
@@ -201,17 +184,13 @@ export function Suppliers() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {(s.wallet_balance || 0) > 0 ? (
-                        <Badge status="PARTIAL">
-                          ₹{(s.wallet_balance || 0).toFixed(2)} Credit
-                        </Badge>
-                      ) : (
-                        <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest italic leading-none">Balanced</span>
-                      )}
+                      <div className={cn("text-xs font-black px-2 py-1 rounded-full inline-block", (s.wallet_balance || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400')}>
+                        ₹{(s.wallet_balance || 0).toFixed(2)}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                        <div className="flex items-center gap-1">
-                          <button onClick={() => loadDetails(s)} className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all" title="View Details">
+                          <button onClick={() => viewLedger(s.id)} className="p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all" title="View Ledger">
                             <Eye size={16} strokeWidth={2.5} />
                           </button>
                           <button 
@@ -294,89 +273,7 @@ export function Suppliers() {
         </form>
       </Modal>
 
-      {/* Details View Modal */}
-      <Modal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        title="Supplier Details"
-        className="max-w-4xl"
-      >
-        <div className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm col-span-2">
-               <div className="flex items-center gap-3">
-                  <Avatar fallback={selectedSupplier?.shop_name || 'SP'} size="lg" />
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedSupplier?.shop_name}</h3>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-0.5">
-                       <MapPin size={10} /> {selectedSupplier?.location || 'Local'}
-                    </div>
-                  </div>
-               </div>
-            </div>
-            <div className="p-5 bg-indigo-50 border border-indigo-100 rounded-xl">
-               <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">Wallet Balance</div>
-               <div className="text-2xl font-black text-indigo-700 mt-2 italic">₹{(selectedSupplier?.wallet_balance || 0).toFixed(2)}</div>
-            </div>
-            <div className="p-5 bg-rose-50 border border-rose-100 rounded-xl group relative overflow-hidden">
-               <div className="relative z-10">
-                  <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest leading-none">Current Balance</div>
-                  <div className="text-2xl font-black text-rose-600 mt-2 italic">₹{selectedSupplier?.balance.toFixed(2)}</div>
-               </div>
-               <Wallet className="absolute right-0 bottom-0 text-rose-600/10 -mb-4 -mr-4" size={80} />
-            </div>
-          </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-2">
-               <div className="space-y-0.5">
-                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                   <ShoppingBag size={16} className="text-primary" />
-                   Purchase History
-                 </h3>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">View recent purchases and payments</p>
-               </div>
-               <Button 
-                 variant="primary" 
-                 size="sm" 
-                 className="shadow-md shadow-primary/20"
-                 onClick={() => { setSettleAmount(selectedSupplier?.balance || 0); setIsSettleModalOpen(true); }}
-               >
-                 <Wallet size={14} strokeWidth={2.5} />
-                 Record Payment
-               </Button>
-            </div>
-
-            <Card className="p-0 border-slate-200 overflow-hidden shadow-sm">
-               {loadingDetails ? (
-                 <div className="flex justify-center p-16">
-                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                 </div>
-               ) : (
-                 <Table headers={['Date', 'Purchase ID', 'Total Amount', 'Amount Paid', 'Balance', 'Status']}>
-                   {transactions.map(t => (
-                     <tr key={t.id} className="text-xs group hover:bg-slate-50/50 transition-colors">
-                       <td className="px-6 py-4 text-slate-500 font-bold">{format(new Date(t.created_at), 'dd MMM yyyy')}</td>
-                       <td className="px-6 py-4 font-black text-slate-900">#PUR-{t.id.slice(0, 8).toUpperCase()}</td>
-                       <td className="px-6 py-4 font-black text-slate-900">₹{t.total_amount.toFixed(2)}</td>
-                       <td className="px-6 py-4 text-emerald-600 font-black">₹{t.paid_amount.toFixed(2)}</td>
-                       <td className="px-6 py-4 text-rose-600 font-black">₹{t.balance_amount.toFixed(2)}</td>
-                       <td className="px-6 py-4">
-                         <Badge status={t.status} />
-                       </td>
-                     </tr>
-                   ))}
-                   {transactions.length === 0 && (
-                     <tr>
-                       <td colSpan={6} className="px-6 py-16 text-center text-slate-300 font-bold uppercase tracking-widest italic text-[10px]">No transaction history discovered</td>
-                     </tr>
-                   )}
-                 </Table>
-               )}
-            </Card>
-          </div>
-        </div>
-      </Modal>
 
       {/* Settlement Modal */}
       <Modal

@@ -61,6 +61,7 @@ export function Billing() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [useWallet, setUseWallet] = useState(true);
   const [viewingBill, setViewingBill] = useState<any>(null);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [oldBalance, setOldBalance] = useState(0);
@@ -234,7 +235,8 @@ export function Billing() {
         customer_id: selectedCustomerId,
         items: formattedItems,
         paid_amount: parseFloat(paidAmount.toString()),
-        payment_method: parseFloat(paidAmount.toString()) > 0 ? paymentMethod : null
+        payment_method: parseFloat(paidAmount.toString()) > 0 ? paymentMethod : null,
+        use_wallet: useWallet
       });
       
       setIsCreateModalOpen(false);
@@ -328,6 +330,7 @@ _Thank you for your business!_`;
     }]);
     setPaidAmount(0);
     setPaymentMethod('cash');
+    setUseWallet(true);
   };
 
   const filteredBills = bills.filter(bill => 
@@ -589,10 +592,52 @@ _Thank you for your business!_`;
       {/* Section 04: Settlement Strategy */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 border-t border-slate-200">
          <div className="lg:col-span-7 space-y-6">
-           <div className="flex items-center gap-2 px-2">
-             <div className="w-1 h-4 bg-primary rounded-full shadow-sm" />
-             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Payment Details</h3>
-           </div>
+             <div className="flex items-center gap-2 px-2">
+               <div className="w-1 h-4 bg-primary rounded-full shadow-sm" />
+               <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Payment Details</h3>
+             </div>
+
+             {((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance > 0) && (
+                  <button 
+                    onClick={() => {
+                      const newUseWallet = !useWallet;
+                      setUseWallet(newUseWallet);
+                      if (newUseWallet) {
+                        const wallet = (customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0;
+                        setPaidAmount(Math.max(0, billTotal - wallet).toFixed(2));
+                      }
+                    }}
+                    className={cn(
+                      "w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group relative overflow-hidden",
+                      useWallet 
+                        ? "bg-emerald-50/50 border-emerald-500/20 text-emerald-800 shadow-xl shadow-emerald-500/5" 
+                        : "bg-white border-slate-200 text-slate-400 hover:border-primary/30"
+                    )}
+                  >
+                    {useWallet && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />}
+                    <div className="flex items-center gap-4 relative">
+                       <div className={cn(
+                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
+                         useWallet ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-slate-100 text-slate-400"
+                       )}>
+                          <Receipt size={24} strokeWidth={2.5} />
+                       </div>
+                       <div className="text-left">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1">Apply Wallet Balance</div>
+                          <div className="text-lg font-black italic tracking-tighter">Use ₹{Math.min(((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0), billTotal).toFixed(2)} from Customer Wallet</div>
+                       </div>
+                    </div>
+                    <div className={cn(
+                      "w-14 h-8 rounded-full relative transition-all flex items-center px-1 shadow-inner",
+                      useWallet ? "bg-emerald-500" : "bg-slate-300"
+                    )}>
+                      <div className={cn(
+                         "w-6 h-6 bg-white rounded-full transition-all shadow-md transform",
+                         useWallet ? "translate-x-6" : "translate-x-0"
+                      )} />
+                    </div>
+                  </button>
+               )}
            
            <div className="grid grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/20">
               <div className="space-y-2">
@@ -695,22 +740,29 @@ _Thank you for your business!_`;
                          <span className="font-black text-lg italic tracking-tighter">₹{billTotal.toFixed(2)}</span>
                       </div>
                      
-                     <div className="flex justify-between items-center text-primary group/row border-b border-white/5 pb-3">
-                        <span className="font-bold text-[10px] uppercase tracking-widest">Amount Paid</span>
-                        <span className="font-black text-base italic tracking-tighter">₹{parseFloat(paidAmount.toString()) || 0}</span>
-                     </div>
+                      <div className="flex justify-between items-center text-primary group/row border-b border-white/5 pb-3">
+                         <span className="font-bold text-[10px] uppercase tracking-widest">Amount Paid</span>
+                         <span className="font-black text-base italic tracking-tighter">₹{parseFloat(paidAmount.toString()) || 0}</span>
+                      </div>
 
-                     <div className="pt-3 flex flex-col gap-1">
-                        <span className="text-slate-500 font-black text-[9px] uppercase tracking-[0.4em] leading-none">Remaining Balance</span>
-                        <div className={cn(
-                          "text-2xl font-black italic tracking-tighter transition-all duration-500",
-                          Math.max(0, billTotal - (parseFloat(paidAmount.toString()) || 0)) > 0 
-                            ? "text-rose-500" 
-                            : "text-emerald-500"
-                        )}>
-                          ₹{Math.max(0, billTotal - (parseFloat(paidAmount.toString()) || 0)).toFixed(2)}
-                        </div>
-                     </div>
+                      {useWallet && ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance > 0) && (
+                           <div className="flex justify-between items-center text-emerald-400 group/row">
+                              <span className="font-bold text-[10px] uppercase tracking-widest">Wallet Used</span>
+                              <span className="font-black text-base italic tracking-tighter">- ₹{Math.min(((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0), billTotal).toFixed(2)}</span>
+                           </div>
+                       )}
+
+                      <div className="pt-3 flex flex-col gap-1">
+                         <span className="text-slate-500 font-black text-[9px] uppercase tracking-[0.4em] leading-none">Remaining Balance</span>
+                         <div className={cn(
+                           "text-2xl font-black italic tracking-tighter transition-all duration-500",
+                           Math.max(0, billTotal - (useWallet ? ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0) : 0) - (parseFloat(paidAmount.toString()) || 0)) > 0 
+                             ? "text-rose-500" 
+                             : "text-emerald-500"
+                         )}>
+                           ₹{Math.max(0, billTotal - (useWallet ? ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0) : 0) - (parseFloat(paidAmount.toString()) || 0)).toFixed(2)}
+                         </div>
+                      </div>
                   </div>
                </div>
 

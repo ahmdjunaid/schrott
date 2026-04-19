@@ -7,14 +7,16 @@ export const billingService = {
     items: any[];
     paid_amount: number;
     payment_method: string | null;
+    use_wallet?: boolean;
   }): Promise<string> => {
-    const { customer_id, items, paid_amount, payment_method } = billData;
+    const { customer_id, items, paid_amount, payment_method, use_wallet } = billData;
     
     const { data, error } = await supabase.rpc('create_bill_and_update_stock', {
       p_customer_id: customer_id,
       p_items: items,
       p_paid_amount: paid_amount,
-      p_payment_method: payment_method
+      p_payment_method: payment_method,
+      p_use_wallet: use_wallet ?? true
     });
 
     if (error) throw error;

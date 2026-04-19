@@ -40,6 +40,7 @@ export interface Customer {
   shop_name: string;
   location?: string;
   is_active: boolean;
+  wallet_balance?: number;
   created_at: string;
 }
 

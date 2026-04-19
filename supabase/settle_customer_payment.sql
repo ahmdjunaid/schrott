@@ -36,6 +36,7 @@ BEGIN
     UPDATE bills 
     SET 
       paid_amount = paid_amount + v_settle_amount,
+      balance_amount = DEFAULT,
       status = CASE 
         WHEN (paid_amount + v_settle_amount) >= total_amount THEN 'PAID'
         ELSE 'PARTIAL'
@@ -45,5 +46,12 @@ BEGIN
     -- update the remaining payment amount
     v_remaining_amount := v_remaining_amount - v_settle_amount;
   END LOOP;
+
+  -- NEW: If there is still money left (overpayment), store it in the customer's wallet
+  IF v_remaining_amount > 0 THEN
+    UPDATE customers 
+    SET wallet_balance = wallet_balance + v_remaining_amount 
+    WHERE id = p_customer_id;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
