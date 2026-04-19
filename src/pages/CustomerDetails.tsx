@@ -102,31 +102,31 @@ export function CustomerDetails() {
   );
 
   return (
-    <div id="printable-invoice" className="space-y-8 py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div id="printable-invoice" className="space-y-4 md:space-y-8 py-2 md:py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header - Hidden on Print */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 print:hidden">
+        <div className="flex items-center gap-3 md:gap-4">
           <button 
             onClick={() => navigate('/customers')}
-            className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-400 hover:text-slate-900 shadow-sm"
+            className="p-2 md:p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-400 hover:text-slate-900 shadow-sm"
           >
-            <ArrowLeft size={20} strokeWidth={2.5} />
+            <ArrowLeft size={18} md:size={20} strokeWidth={2.5} />
           </button>
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Transaction Ledger</h2>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-1">
-               <Calendar size={14} /> Full Audit Trail for {customer?.shop_name}
+            <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase md:normal-case">Ledger</h2>
+            <p className="text-[9px] md:text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-0.5 md:mt-1">
+               <Calendar size={12} md:size={14} /> Audit Trail: {customer?.shop_name}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm print:hidden gap-1">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
+          <div className="flex items-center overflow-x-auto bg-white border border-slate-200 rounded-xl p-1 shadow-sm print:hidden gap-1 no-scrollbar">
             {[7, 30, 'all', 'custom'].map((days) => (
               <button
                 key={days}
                 onClick={() => setFilterDays(days as any)}
                 className={cn(
-                  "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "px-3 md:px-4 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-lg transition-all whitespace-nowrap",
                   filterDays === days 
                     ? "bg-slate-900 text-white" 
                     : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
@@ -135,59 +135,60 @@ export function CustomerDetails() {
                 {days === 'all' ? 'All' : days === 'custom' ? 'Custom' : `${days}D`}
               </button>
             ))}
-            
-            {filterDays === 'custom' && (
-              <div className="flex items-center gap-2 ml-2 pr-2 border-l pl-3 border-slate-100">
-                <input 
-                  type="date" 
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                  className="text-[10px] font-bold border-none bg-slate-50 rounded p-1 focus:ring-0"
-                />
-                <span className="text-[10px] text-slate-400 font-bold">to</span>
-                <input 
-                  type="date" 
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                  className="text-[10px] font-bold border-none bg-slate-50 rounded p-1 focus:ring-0"
-                />
-              </div>
-            )}
           </div>
-          <Button onClick={handlePrint} variant="ghost" className="h-12 px-6 border-slate-200 text-slate-600 hover:bg-slate-50">
-            <Printer size={18} strokeWidth={2.5} />
+          
+          <Button onClick={handlePrint} variant="ghost" className="h-10 md:h-12 px-4 md:px-6 border-slate-200 text-slate-600 hover:bg-slate-50 text-[10px] md:text-sm">
+            <Printer size={16} md:size={18} strokeWidth={2.5} />
             Export PDF
           </Button>
         </div>
       </div>
 
+      {filterDays === 'custom' && (
+        <div className="flex md:hidden items-center justify-between bg-white border border-slate-100 rounded-xl p-3 gap-2 animate-in slide-in-from-top-2">
+             <input 
+               type="date" 
+               value={dateRange.start}
+               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+               className="text-[10px] font-bold border rounded-lg bg-slate-50 p-2 flex-1 focus:ring-0"
+             />
+             <span className="text-[10px] text-slate-400 font-bold px-2">to</span>
+             <input 
+               type="date" 
+               value={dateRange.end}
+               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+               className="text-[10px] font-bold border rounded-lg bg-slate-50 p-2 flex-1 focus:ring-0"
+             />
+        </div>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="md:col-span-2 bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-6 group">
-           <Avatar fallback={customer?.shop_name || 'CL'} size="xl" className="shadow-2xl shadow-slate-200 group-hover:scale-105 transition-transform" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+        <div className="md:col-span-2 bg-white p-5 md:p-8 rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 md:gap-6 group">
+           <Avatar fallback={customer?.shop_name || 'CL'} size="lg" md:size="xl" className="shadow-2xl shadow-slate-200 group-hover:scale-105 transition-transform" />
            <div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{customer?.shop_name}</h3>
-              <div className="flex flex-col gap-2 mt-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                 <div className="flex items-center gap-2"><MapPin size={12} className="text-primary" /> {customer?.location || 'Main Terminal'}</div>
-                 <div className="flex items-center gap-2"><Phone size={12} className="text-primary" /> {customer?.phone}</div>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none">{customer?.shop_name}</h3>
+              <div className="flex flex-col gap-1.5 md:gap-2 mt-2 md:mt-3 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
+                 <div className="flex items-center gap-2"><MapPin size={10} md:size={12} className="text-primary" /> {customer?.location || 'Main Terminal'}</div>
+                 <div className="flex items-center gap-2"><Phone size={10} md:size={12} className="text-primary" /> {customer?.phone}</div>
               </div>
            </div>
         </div>
 
         {/* Web-Only Cards */}
-        <div className="bg-rose-50 p-8 rounded-3xl border border-rose-100 shadow-xl shadow-rose-500/5 relative overflow-hidden group print:hidden">
+        <div className="bg-rose-50 p-5 md:p-8 rounded-2xl md:rounded-3xl border border-rose-100 shadow-xl shadow-rose-500/5 relative overflow-hidden group print:hidden">
            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-rose-200/40 transition-all duration-700" />
            <div className="relative">
-              <span className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] leading-normal mb-1 block italic">Total Outstanding</span>
-              <div className="text-3xl font-black text-rose-600 italic tracking-tighter leading-tight">₹{customer?.balance?.toFixed(2) || '0.00'}</div>
+              <span className="text-[9px] md:text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] leading-relaxed mb-1 md:mb-3 block italic">Outstanding</span>
+              <div className="text-2xl md:text-3xl font-black text-rose-600 italic tracking-tighter leading-tight">₹{customer?.balance?.toFixed(2) || '0.00'}</div>
            </div>
         </div>
 
-        <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 shadow-xl shadow-emerald-500/5 relative overflow-hidden group print:hidden">
+        <div className="bg-emerald-50 p-5 md:p-8 rounded-2xl md:rounded-3xl border border-emerald-100 shadow-xl shadow-emerald-500/5 relative overflow-hidden group print:hidden">
            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-200/40 transition-all duration-700" />
            <div className="relative">
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] leading-normal mb-1 block italic">Wallet Advance</span>
-              <div className="text-3xl font-black text-emerald-600 italic tracking-tighter leading-tight">₹{customer?.wallet_balance?.toFixed(2) || '0.00'}</div>
+              <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] leading-relaxed mb-1 md:mb-3 block italic">Wallet</span>
+              <div className="text-2xl md:text-3xl font-black text-emerald-600 italic tracking-tighter leading-tight">₹{customer?.wallet_balance?.toFixed(2) || '0.00'}</div>
            </div>
         </div>
 
@@ -206,6 +207,7 @@ export function CustomerDetails() {
 
       {/* Ledger Table */}
       <Card className="p-0 border-slate-200 overflow-hidden print:overflow-visible print:border-none shadow-2xl shadow-slate-200/40 bg-white">
+        <div className="overflow-x-auto no-scrollbar">
           <Table headers={['Date', 'Reference / TXN ID', 'Debit (+)', 'Credit (-)', 'Audit Trail']}>
             {transactions.map(t => (
               <tr key={t.id + t.type} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0 italic">
@@ -293,6 +295,7 @@ export function CustomerDetails() {
               </tr>
             )}
           </Table>
+        </div>
       </Card>
 
       {/* Print Footer */}
