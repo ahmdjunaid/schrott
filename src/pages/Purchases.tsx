@@ -127,6 +127,7 @@ export function Purchases() {
   };
 
   const updateItemQuantity = (index: number, quantity: number) => {
+    if (quantity < 0) return;
     setPurchaseItems(purchaseItems.map((item, i) => {
       if (i === index) {
         const baseTotal = quantity * item.purchase_price;
@@ -139,6 +140,7 @@ export function Purchases() {
   };
 
   const updateItemPrice = (index: number, purchase_price: number) => {
+    if (purchase_price < 0) return;
     setPurchaseItems(purchaseItems.map((item, i) => {
       if (i === index) {
         const baseTotal = item.quantity * purchase_price;
@@ -290,9 +292,18 @@ export function Purchases() {
 
   const resetNewPurchase = () => {
     setSelectedSupplierId('');
-    setPurchaseItems([]);
+    setPurchaseItems([{
+      product_id: '',
+      name: '',
+      quantity: 1,
+      purchase_price: 0,
+      sgst: 0,
+      cgst: 0,
+      total: 0
+    }]);
     setPaidAmount(0);
     setPaymentMethod('bank_transfer');
+    setUseWallet(true);
   };
 
   const filteredPurchases = purchases.filter(p => 
@@ -382,22 +393,22 @@ export function Purchases() {
                        </div>
                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Balance</div>
                     </td>
-                    <td className="px-6 py-4">
-                       <div className="flex items-center justify-end gap-1">
-                          <button 
-                            onClick={() => handleViewDetails(p)}
-                            className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all"
-                            title="View Details"
-                          >
-                            <Eye size={18} strokeWidth={2.5} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeletePurchase(p.id)}
-                            className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all"
-                            title="Delete Purchase"
-                          >
-                            <Trash2 size={18} strokeWidth={2.5} />
-                          </button>
+                    <td className="px-6 py-4 text-center">
+                       <div className="flex items-center justify-center gap-1">
+                           <button 
+                             onClick={() => handleViewDetails(p)}
+                             className="p-2 text-slate-400 hover:bg-primary/5 rounded-lg transition-all border border-transparent hover:border-primary/10"
+                             title="View Details"
+                           >
+                             <Eye size={18} strokeWidth={2.5} />
+                           </button>
+                           <button 
+                             onClick={() => handleDeletePurchase(p.id)}
+                             className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all border border-transparent hover:border-rose-100"
+                             title="Delete Purchase"
+                           >
+                             <Trash2 size={18} strokeWidth={2.5} />
+                           </button>
                        </div>
                     </td>
                   </tr>
@@ -456,24 +467,37 @@ export function Purchases() {
                  <div className="w-1 h-4 bg-primary rounded-full shadow-sm" />
                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Supplier Details</h3>
               </div>
-              <select
-                className="w-full h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-primary/10 transition-all italic"
+              <SearchableSelect
+                options={suppliers.map(s => ({ 
+                  id: s.id, 
+                  name: s.shop_name, 
+                  subtitle: `${s.location || 'Local'} — Balance: ₹${(s.balance || 0).toFixed(2)}` 
+                }))}
                 value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-              >
-                <option value="">Select a supplier...</option>
-                {suppliers.map(s => <option key={s.id} value={s.id} className="font-bold">{s.shop_name} — {s.location || 'Local'}</option>)}
-              </select>
+                onChange={setSelectedSupplierId}
+                placeholder="Select a supplier..."
+              />
             </div>
             {selectedSupplierId && (
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 min-w-[240px] border-l-4 border-l-emerald-500">
-                 <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100">
+              <div className={cn(
+                "bg-white p-3 rounded-xl border-2 shadow-xl shadow-slate-200/20 flex items-center gap-4 min-w-[240px] border-l-8",
+                (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) > 0 ? "border-rose-500" : "border-emerald-500"
+              )}>
+                 <div className={cn(
+                   "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border",
+                   (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) > 0 ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                 )}>
                     <Wallet size={20} strokeWidth={2.5} />
                  </div>
                  <div>
-                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Supplier Balance</div>
-                    <div className="text-xl font-black text-emerald-600 italic tracking-tighter leading-none">
-                      ₹{((suppliers.find(s => s.id === selectedSupplierId) as any)?.wallet_balance || 0).toFixed(2)}
+                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+                      {(suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) > 0 ? 'Outstanding Dues' : 'Available Credit'}
+                    </div>
+                    <div className={cn(
+                      "text-xl font-black italic tracking-tighter leading-none",
+                      (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"
+                    )}>
+                      ₹{Math.abs(suppliers.find(s => s.id === selectedSupplierId)?.balance || 0).toFixed(2)}
                     </div>
                  </div>
               </div>
@@ -607,37 +631,44 @@ export function Purchases() {
                       const newUseWallet = !useWallet;
                       setUseWallet(newUseWallet);
                       if (newUseWallet) {
-                        const wallet = (suppliers.find(s => s.id === selectedSupplierId) as any)?.wallet_balance || 0;
-                        setPaidAmount(Math.max(0, purchaseTotal - wallet).toFixed(2));
+                        const balance = suppliers.find(s => s.id === selectedSupplierId)?.balance || 0;
+                        // Only apply if it's a credit balance (negative)
+                        if (balance < 0) {
+                          setPaidAmount(Math.max(0, purchaseTotal - Math.abs(balance)).toFixed(2));
+                        }
                       }
                     }}
                     className={cn(
                       "w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group relative overflow-hidden",
-                      useWallet 
+                      useWallet && (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0
                         ? "bg-emerald-50/50 border-emerald-500/20 text-emerald-800 shadow-xl shadow-emerald-500/5" 
                         : "bg-white border-slate-200 text-slate-400 hover:border-primary/30"
                     )}
                   >
-                    {useWallet && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />}
+                    {useWallet && (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0 && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />}
                     <div className="flex items-center gap-4 relative">
                        <div className={cn(
                          "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-                         useWallet ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-slate-100 text-slate-400"
+                         useWallet && (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0 ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-slate-100 text-slate-400"
                        )}>
                           <Receipt size={24} strokeWidth={2.5} />
                        </div>
                        <div className="text-left">
-                          <div className="text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1">Apply Wallet Balance</div>
-                          <div className="text-lg font-black italic tracking-tighter">Use ₹{Math.min(((suppliers.find(s => s.id === selectedSupplierId) as any)?.wallet_balance || 0), purchaseTotal).toFixed(2)} from Supplier Wallet</div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1">Apply Credit Balance</div>
+                          <div className="text-lg font-black italic tracking-tighter">
+                            {(suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0 
+                              ? `Use ₹${Math.min(Math.abs(suppliers.find(s => s.id === selectedSupplierId)?.balance || 0), purchaseTotal).toFixed(2)} from Credits`
+                              : 'No Credits Available'}
+                          </div>
                        </div>
                     </div>
                     <div className={cn(
                       "w-14 h-8 rounded-full relative transition-all flex items-center px-1 shadow-inner",
-                      useWallet ? "bg-emerald-500" : "bg-slate-300"
+                      useWallet && (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0 ? "bg-emerald-500" : "bg-slate-200"
                     )}>
                       <div className={cn(
                         "w-6 h-6 bg-white rounded-full transition-all shadow-md transform",
-                        useWallet ? "translate-x-6" : "translate-x-0"
+                        useWallet && (suppliers.find(s => s.id === selectedSupplierId)?.balance || 0) < 0 ? "translate-x-6" : "translate-x-0"
                       )} />
                     </div>
                   </button>

@@ -4,8 +4,11 @@ import { Search, ChevronDown, X } from 'lucide-react';
 import { cn } from './index';
 
 interface Option {
-  id: string;
-  name: string;
+  id?: string;
+  value?: string;
+  name?: string;
+  label?: string;
+  subtitle?: string;
   [key: string]: any;
 }
 
@@ -32,7 +35,7 @@ export function SearchableSelect({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedOption = options.find(opt => opt.id === value);
+  const selectedOption = options.find(opt => (opt.id || opt.value) === value);
 
   const updateCoords = () => {
     if (containerRef.current) {
@@ -60,7 +63,6 @@ export function SearchableSelect({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        // Also check if the click is on the portal dropdown
         const portalDropdown = document.getElementById('searchable-select-portal');
         if (portalDropdown && portalDropdown.contains(event.target as Node)) return;
         setIsOpen(false);
@@ -70,9 +72,12 @@ export function SearchableSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(opt =>
-    opt.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOptions = options.filter(opt => {
+    const label = opt.name || opt.label || '';
+    const subtitle = opt.subtitle || '';
+    const searchStr = `${label} ${subtitle}`.toLowerCase();
+    return searchStr.includes(searchTerm.toLowerCase());
+  });
 
   const handleSelect = (optionId: string) => {
     onChange(optionId);
@@ -98,7 +103,10 @@ export function SearchableSelect({
       >
         <div className="flex-1 truncate">
           {selectedOption ? (
-            <span className="font-bold text-slate-900">{selectedOption.name}</span>
+            <div className="flex flex-col leading-tight">
+               <span className="font-bold text-slate-900 truncate">{selectedOption.name || selectedOption.label}</span>
+               {selectedOption.subtitle && <span className="text-[9px] text-slate-400 font-bold uppercase truncate">{selectedOption.subtitle}</span>}
+            </div>
           ) : (
             <span className="text-slate-300 font-medium">{placeholder}</span>
           )}
@@ -145,25 +153,38 @@ export function SearchableSelect({
             ) : (
               filteredOptions.map(option => (
                 <div
-                  key={option.id}
+                  key={option.id || option.value}
                   className={cn(
-                    "px-4 py-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer mb-0.5 last:mb-0",
-                    value === option.id 
+                    "px-4 py-2 rounded-lg transition-all cursor-pointer mb-0.5 last:mb-0",
+                    value === (option.id || option.value) 
                       ? "bg-primary text-white shadow-sm" 
-                      : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-primary border border-transparent"
                   )}
-                  onClick={() => handleSelect(option.id)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelect(option.id || option.value || '');
+                  }}
                 >
-                  <div className="flex justify-between items-center">
-                    <span>{option.name}</span>
+                  <div className="flex justify-between items-center gap-3">
+                    <div className="flex flex-col min-w-0">
+                       <span className={cn("text-xs font-black uppercase truncate", value === (option.id || option.value) ? "text-white" : "text-slate-900")}>
+                          {option.name || option.label}
+                       </span>
+                       {option.subtitle && (
+                         <span className={cn("text-[8px] font-bold uppercase tracking-widest leading-normal", value === (option.id || option.value) ? "text-white/60" : "text-slate-400")}>
+                            {option.subtitle}
+                         </span>
+                       )}
+                    </div>
                     {option.stock !== undefined && (
                       <span className={cn(
-                        "text-[9px] px-2 py-0.5 rounded-md border font-black uppercase tracking-tighter",
-                        value === option.id 
+                        "text-[8px] px-2 py-0.5 rounded border font-black uppercase tracking-tighter shrink-0",
+                        value === (option.id || option.value) 
                           ? "bg-white/20 border-white/30 text-white" 
                           : "bg-slate-100 border-slate-200 text-slate-400"
                       )}>
-                        Stock: {option.stock}
+                        {option.stock}u
                       </span>
                     )}
                   </div>

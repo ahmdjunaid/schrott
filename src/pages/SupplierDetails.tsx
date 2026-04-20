@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supplierService } from '../services/suppliers';
-import { Button, Card, Table, Badge, Avatar, cn } from '../components/UI';
-import { ArrowLeft, Printer, ShoppingBag, Banknote, MapPin, Phone, Wallet, Calendar } from 'lucide-react';
+import { Button, Card, Table, Avatar, cn } from '../components/UI';
+import { ArrowLeft, Printer, ShoppingBag, MapPin, Phone, Calendar, CheckCircle2 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import toast from 'react-hot-toast';
+import { Pagination } from '../components/UI';
 
 export function SupplierDetails() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,8 @@ export function SupplierDetails() {
   const [loading, setLoading] = useState(true);
   const [filterDays, setFilterDays] = useState<number | 'all' | 'custom'>(7);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   useEffect(() => {
     if (id) fetchLedger();
@@ -45,43 +48,31 @@ export function SupplierDetails() {
       
       setSupplier(sData);
       
-      // Group splits (Payment + Wallet Deposit from same transaction)
-      const rawTransactions = filteredTData;
-      const grouped: any[] = [];
-      const groups: { [key: string]: any } = {};
-
-      rawTransactions.forEach(t => {
-        if (t.type === 'INVOICE') {
-          grouped.push({ ...t });
-        } else {
-          const timeKey = `${format(new Date(t.created_at), 'yyyy-MM-dd HH:mm')}_${t.payment_method || 'wallet'}`;
-          if (!groups[timeKey]) {
-            groups[timeKey] = { 
-              ...t, 
-              total_amount: 0, 
-              breakdown: { settle: 0, deposit: 0 },
-              settled_ids: [],
-              isGrouped: true 
-            };
-            grouped.push(groups[timeKey]);
-          }
-          
-          if (t.type === 'PAYMENT') {
-            groups[timeKey].breakdown.settle += parseFloat(t.amount);
-            groups[timeKey].total_amount += parseFloat(t.amount);
-            if (t.purchase_id) {
-              groups[timeKey].settled_ids.push(t.purchase_id.slice(0, 4).toUpperCase());
-            }
-          } else if (t.type === 'WALLET') {
-            groups[timeKey].breakdown.deposit += parseFloat(t.amount);
-            groups[timeKey].total_amount += parseFloat(t.amount);
-          }
+      // Calculate Running Balance (Option B: Pure Ledger)
+      const typePriority: { [key: string]: number } = { 'INVOICE': 0, 'PAYMENT': 1, 'RETURN': 2, 'REFUND': 3 };
+      
+      const sorted = [...filteredTData].sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        if (Math.abs(timeA - timeB) < 10000) {
+          return typePriority[a.type as string] - typePriority[b.type as string];
         }
+        return timeA - timeB;
       });
 
-      const ledgerWithBalance = grouped;
+      let currentBalance = 0;
+      const ledgerWithBalance = sorted.map(t => {
+        if (t.type === 'INVOICE') {
+          currentBalance += parseFloat(t.total_amount || 0);
+        } else if (t.type === 'RETURN') {
+          currentBalance -= parseFloat(t.total_amount || 0);
+        } else {
+          currentBalance -= parseFloat(t.amount || t.total_amount || 0);
+        }
+        return { ...t, running_balance: currentBalance };
+      });
 
-      setTransactions(ledgerWithBalance);
+      setTransactions([...ledgerWithBalance].reverse());
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load ledger');
@@ -100,21 +91,25 @@ export function SupplierDetails() {
     </div>
   );
 
+  const paginatedTransactions = transactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
-    <div id="printable-invoice" className="space-y-4 md:space-y-8 py-2 md:py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header - Hidden on Print */}
+    <div className="space-y-4 md:space-y-8 py-2 md:py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 print:hidden">
         <div className="flex items-center gap-3 md:gap-4">
           <button 
             onClick={() => navigate('/suppliers')}
             className="p-2 md:p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-400 hover:text-slate-900 shadow-sm"
           >
-            <ArrowLeft size={18} md:size={20} strokeWidth={2.5} />
+            <ArrowLeft size={18} strokeWidth={2.5} />
           </button>
           <div>
-            <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase md:normal-case">Supplier</h2>
+            <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase md:normal-case italic">Supplier Ledger</h2>
             <p className="text-[9px] md:text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 mt-0.5 md:mt-1">
-               <Calendar size={12} md:size={14} /> Audit Log: {supplier?.shop_name}
+               <Calendar size={12} /> STATEMENT: {supplier?.shop_name}
             </p>
           </div>
         </div>
@@ -123,7 +118,10 @@ export function SupplierDetails() {
             {[7, 30, 'all', 'custom'].map((days) => (
               <button
                 key={days}
-                onClick={() => setFilterDays(days as any)}
+                onClick={() => {
+                  setFilterDays(days as any);
+                  setCurrentPage(1);
+                }}
                 className={cn(
                   "px-3 md:px-4 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-lg transition-all whitespace-nowrap",
                   filterDays === days 
@@ -136,196 +134,137 @@ export function SupplierDetails() {
             ))}
           </div>
           
-          <Button onClick={handlePrint} variant="ghost" className="h-10 md:h-12 px-4 md:px-6 border-slate-200 text-slate-600 hover:bg-slate-50 text-[10px] md:text-sm">
-            <Printer size={16} md:size={18} strokeWidth={2.5} />
-            Export PDF
+          <Button onClick={handlePrint} variant="ghost" className="h-10 md:h-12 px-4 md:px-6 border-slate-200 text-slate-600 hover:bg-slate-50 text-[10px] md:text-sm italic font-black">
+            <Printer size={16} />
+            Export Statement
           </Button>
         </div>
       </div>
 
-      {filterDays === 'custom' && (
-        <div className="flex md:hidden items-center justify-between bg-white border border-slate-100 rounded-xl p-3 gap-2 animate-in slide-in-from-top-2">
-             <input 
-               type="date" 
-               value={dateRange.start}
-               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-               className="text-[10px] font-bold border rounded-lg bg-slate-50 p-2 flex-1 focus:ring-0"
-             />
-             <span className="text-[10px] text-slate-400 font-bold px-2">to</span>
-             <input 
-               type="date" 
-               value={dateRange.end}
-               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-               className="text-[10px] font-bold border rounded-lg bg-slate-50 p-2 flex-1 focus:ring-0"
-             />
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
-        <div className="md:col-span-2 bg-white p-5 md:p-8 rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 md:gap-6 group">
-           <Avatar fallback={supplier?.shop_name || 'SP'} size="lg" md:size="xl" className="shadow-2xl shadow-slate-200 group-hover:scale-105 transition-transform" />
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+        <div className="flex-1 bg-white p-5 md:p-8 rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 md:gap-6 group">
+           <Avatar fallback={supplier?.shop_name || 'SP'} size="lg" className="shadow-2xl shadow-slate-200 group-hover:scale-105 transition-transform" />
            <div>
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none">{supplier?.shop_name}</h3>
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-none italic uppercase">{supplier?.shop_name}</h3>
               <div className="flex flex-col gap-1.5 md:gap-2 mt-2 md:mt-3 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
-                 <div className="flex items-center gap-2"><MapPin size={10} md:size={12} className="text-primary" /> {supplier?.location || 'Regional Terminal'}</div>
-                 <div className="flex items-center gap-2"><Phone size={10} md:size={12} className="text-primary" /> {supplier?.phone}</div>
+                 <div className="flex items-center gap-2"><MapPin size={12} className="text-primary" /> {supplier?.location || 'Main Hub'}</div>
+                 <div className="flex items-center gap-2"><Phone size={12} className="text-primary" /> {supplier?.phone}</div>
               </div>
            </div>
         </div>
 
-        {/* Web-Only Cards */}
-        <div className="bg-rose-50 p-5 md:p-8 rounded-2xl md:rounded-3xl border border-rose-100 shadow-xl shadow-rose-500/5 relative overflow-hidden group print:hidden">
-           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-rose-200/40 transition-all duration-700" />
+        <div className="lg:w-1/3 bg-slate-900 p-5 md:p-8 rounded-2xl md:rounded-3xl border border-slate-800 shadow-xl shadow-slate-900/10 relative overflow-hidden group">
+           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
            <div className="relative">
-              <span className="text-[9px] md:text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] leading-relaxed mb-1 md:mb-3 block italic">Outstanding</span>
-              <div className="text-2xl md:text-3xl font-black text-rose-600 italic tracking-tighter leading-tight">₹{supplier?.balance?.toFixed(2) || '0.00'}</div>
+              <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] leading-relaxed mb-1 md:mb-3 block italic">Closing Balance</span>
+              <div className={cn(
+                "text-2xl md:text-3xl font-black italic tracking-tighter leading-tight",
+                supplier?.balance > 0 ? "text-rose-500" : "text-emerald-500"
+              )}>
+                 ₹{Math.abs(supplier?.balance || 0).toFixed(2)}
+                 <span className="text-[10px] ml-2 opacity-50 uppercase tracking-widest font-bold">
+                    {supplier?.balance > 0 ? 'To Pay' : 'Credit'}
+                 </span>
+              </div>
            </div>
         </div>
-
-        <div className="bg-emerald-50 p-5 md:p-8 rounded-2xl md:rounded-3xl border border-emerald-100 shadow-xl shadow-emerald-500/5 relative overflow-hidden group print:hidden">
-           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-200/20 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-200/40 transition-all duration-700" />
-           <div className="relative">
-              <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] leading-relaxed mb-1 md:mb-3 block italic">Wallet</span>
-              <div className="text-2xl md:text-3xl font-black text-emerald-600 italic tracking-tighter leading-tight">₹{supplier?.wallet_balance?.toFixed(2) || '0.00'}</div>
-           </div>
-        </div>
-
-        {/* Print-Only Bulletproof Summary handled by previous edits */}
       </div>
 
-      {/* Ledger Table */}
-      <Card className="p-0 border-slate-200 overflow-hidden print:overflow-visible print:border-none shadow-2xl shadow-slate-200/40 bg-white">
-        <div className="overflow-x-auto no-scrollbar">
-          <Table headers={['Date', 'Reference / TXN ID', 'Debit (+)', 'Credit (-)', 'Audit Trail']}>
-            {transactions.map(t => (
-              <tr key={t.id + t.type} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0 italic">
+      <Card className="p-0 border-slate-200 overflow-hidden shadow-2xl shadow-slate-200/40 bg-white">
+        <div className="overflow-x-auto">
+          <Table headers={['Date', 'Transaction / ID', 'Debit (+)', 'Credit (-)', 'Running Balance']}>
+            {paginatedTransactions.map(t => (
+              <tr key={t.id + t.type} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-100 italic">
                 <td className="px-8 py-5 text-xs text-slate-500 font-bold whitespace-nowrap">
                   {format(new Date(t.created_at), 'dd MMM yyyy, HH:mm')}
                 </td>
                 <td className="px-8 py-5">
-                   <div className="flex items-center gap-4">
+                   <div>
                       <div className={cn(
-                        "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border",
-                        t.type === 'INVOICE' ? "bg-rose-50 text-rose-600 border-rose-100" : 
-                        (t.isGrouped && t.breakdown.deposit > 0 && t.breakdown.settle === 0) ? "bg-amber-50 text-amber-600 border-amber-100" :
-                        "bg-emerald-50 text-emerald-600 border-emerald-100"
+                        "font-black text-sm leading-none mb-1",
+                        t.type === 'INVOICE' ? 'text-rose-600' : 
+                        t.type === 'RETURN' ? 'text-amber-600' : 
+                        t.type === 'REFUND' ? 'text-rose-500' : 'text-emerald-600'
                       )}>
-                         {t.type === 'INVOICE' ? <ShoppingBag size={18} /> : 
-                          (t.isGrouped && t.breakdown.deposit > 0 && t.breakdown.settle === 0) ? <Wallet size={18} /> :
-                          <Banknote size={18} />}
+                         {t.type === 'INVOICE' ? 'PURCHASE' : 
+                          t.type === 'RETURN' ? 'RETURN' : 
+                          t.type === 'REFUND' ? 'REFUND' : 'PAYMENT'}
+                         <span className="ml-2 opacity-30 text-[10px] tracking-normal font-bold uppercase">
+                           {t.id.slice(0, 8)}
+                         </span>
                       </div>
-                      <div>
-                         <div className="font-black text-slate-900 leading-none mb-1 text-sm">
-                            {t.type === 'INVOICE' ? `PURCH-${t.id.slice(0, 8).toUpperCase()}` : 
-                             (t.isGrouped && t.breakdown.deposit > 0 && t.breakdown.settle === 0) ? `WLT-${t.id.slice(0, 8).toUpperCase()}` :
-                             `TXN-${t.id.slice(0, 8).toUpperCase()}`}
-                         </div>
-                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                            {t.type === 'INVOICE' ? 'Stock Entry' : 
-                             (t.isGrouped && t.breakdown.deposit > 0 && t.breakdown.settle === 0) ? 'Wallet Deposit' :
-                             (t.isGrouped && t.breakdown.deposit > 0) ? 'Payment & Deposit' :
-                             `Settlement (${(t.payment_method || 'Cash').toUpperCase()})`}
-                         </div>
+                      <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                         Method: {t.payment_method || 'N/A'}
                       </div>
                    </div>
                 </td>
-                 <td className="px-8 py-5">
-                    {t.type === 'INVOICE' ? (
-                      <div className="font-black text-slate-900 text-sm tracking-tighter italic">₹{t.total_amount.toFixed(2)}</div>
-                    ) : <span className="text-slate-200 text-sm">-</span>}
-                 </td>
-                 <td className="px-8 py-5">
-                    {t.isGrouped ? (
+                <td className="px-8 py-5">
+                    {t.type === 'INVOICE' || t.type === 'REFUND' ? (
                       <div className={cn(
-                        "font-black text-sm tracking-tighter italic",
-                        t.breakdown.deposit > 0 ? "text-amber-600" : "text-emerald-600"
+                        "font-black text-sm italic",
+                        t.type === 'INVOICE' ? "text-slate-900" : "text-rose-500"
                       )}>
-                         ₹{t.total_amount.toFixed(2)}
+                        {t.type === 'REFUND' ? '+ ' : ''}₹{parseFloat(t.amount || t.total_amount || 0).toFixed(2)}
                       </div>
-                    ) : t.type === 'PAYMENT' ? (
-                      <div className="font-black text-emerald-600 text-sm tracking-tighter italic">₹{t.amount.toFixed(2)}</div>
-                    ) : t.type === 'WALLET' ? (
-                      <div className="font-black text-amber-600 text-sm tracking-tighter italic">₹{t.amount.toFixed(2)}</div>
-                    ) : <span className="text-slate-200 text-sm">-</span>}
-                 </td>
-                 <td className="px-8 py-5 min-w-[150px]">
-                   {t.type === 'INVOICE' ? (
-                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter leading-relaxed">
-                        Paid: ₹{t.paid_amount.toFixed(2)}<br/>on {format(new Date(t.created_at), 'dd MMM yyyy')}
-                     </div>
-                   ) : t.isGrouped && (
-                     <div className="flex flex-col gap-1.5">
-                        {t.settled_ids.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {Array.from(new Set(t.settled_ids)).map((pid: any) => (
-                              <span key={pid} className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">Settled #{pid}</span>
-                            ))}
-                          </div>
-                        )}
-                        {t.breakdown.settle > 0 && t.breakdown.deposit > 0 && (
-                           <div className="text-[9px] font-bold text-amber-600 uppercase tracking-tighter opacity-80 leading-tight">
-                             (₹{t.breakdown.deposit.toFixed(0)} to Wallet)
-                           </div>
-                        )}
-                     </div>
-                   )}
-                 </td>
+                    ) : <span className="opacity-20 text-slate-300">-</span>}
+                </td>
+                <td className="px-8 py-5">
+                    {t.type === 'PAYMENT' ? (
+                      <div className="font-black text-emerald-600 text-sm italic">
+                        ₹{parseFloat(t.amount || 0).toFixed(2)}
+                      </div>
+                    ) : t.type === 'RETURN' ? (
+                       <div className="font-black text-amber-600 text-sm italic">
+                         ₹{parseFloat(t.total_amount || 0).toFixed(2)}
+                       </div>
+                    ) : <span className="opacity-20 text-slate-300">-</span>}
+                </td>
+                <td className="px-8 py-5">
+                   <div className={cn(
+                     "font-black text-sm italic",
+                     t.running_balance > 0 ? "text-rose-600" : "text-emerald-600"
+                   )}>
+                      ₹{Math.abs(t.running_balance).toFixed(2)}
+                      <span className="text-[8px] ml-2 opacity-50 uppercase tracking-tighter">
+                        {t.running_balance > 0 ? 'Due' : 'Credit'}
+                      </span>
+                   </div>
+                </td>
               </tr>
             ))}
+            
+            {transactions.length > 0 && currentPage === Math.ceil(transactions.length / itemsPerPage) && (
+              <tr className="bg-slate-50/30">
+                <td colSpan={5} className="px-8 py-10 text-center">
+                  <div className="flex flex-col items-center gap-2 opacity-40">
+                    <CheckCircle2 size={24} className="text-slate-400" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">End of Ledger Statement</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+
             {transactions.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-10 py-32 text-center">
-                   <div className="flex flex-col items-center gap-3">
-                      <ShoppingBag size={48} className="text-slate-200" />
-                      <p className="text-slate-300 font-black uppercase tracking-[0.4em] text-[10px]">No transaction history discovered</p>
-                   </div>
+                   <ShoppingBag size={48} className="mx-auto text-slate-200 mb-4" />
+                   <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No transaction history discovered</p>
                 </td>
               </tr>
             )}
           </Table>
         </div>
+
+        {transactions.length > itemsPerPage && (
+          <div className="p-6 border-t border-slate-100 print:hidden">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(transactions.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </Card>
-
-      {/* Print Footer */}
-      <div className="hidden print:block text-center pt-20 border-t-2 border-slate-900 mt-20">
-         <p className="text-sm font-black text-slate-900 uppercase tracking-[0.3em] mb-2">End of Ledger Statement</p>
-         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generated on {format(new Date(), 'dd MMM yyyy HH:mm')}</p>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          @page { size: portrait; margin: 15mm; }
-          body { background: white !important; color: black !important; font-size: 10pt !important; }
-          .print\\:hidden, header, aside, nav, footer, button, .no-print { display: none !important; }
-          
-          #printable-invoice { position: static !important; width: 100% !important; border: none !important; padding: 0 !important; margin: 0 !important; visibility: visible !important; }
-          #printable-invoice * { visibility: visible !important; }
-          
-          /* Simple Header */
-          h2 { font-size: 18pt !important; border-bottom: 2px solid black !important; padding-bottom: 5mm !important; margin-bottom: 5mm !important; }
-          .grid { display: block !important; border: none !important; margin-bottom: 10mm !important; }
-          .bg-white, .bg-rose-50, .bg-emerald-50 { border: none !important; background: transparent !important; padding: 0 !important; margin-bottom: 2mm !important; box-shadow: none !important; }
-          
-          /* Modern Header in Print */
-          .grid.grid-cols-4 { display: flex !important; flex-wrap: wrap !important; gap: 10px !important; }
-          .grid.grid-cols-4 > div { flex: 1 !important; min-width: 200px !important; border: 1px solid #eee !important; padding: 15px !important; border-radius: 10px !important; }
-          
-          .italic { font-style: normal !important; }
-          
-          /* Absolute Table */
-          table { width: 100% !important; border-collapse: collapse !important; border: 1px solid black !important; margin-top: 20px !important; }
-          th { background: #f2f2f2 !important; border: 1px solid black !important; padding: 8px !important; text-transform: uppercase !important; font-size: 9pt !important; }
-          td { border: 1px solid black !important; padding: 8px !important; font-size: 9pt !important; }
-          
-          /* Remove Icons in Print */
-          .w-10.h-10 { display: none !important; }
-          .badge, .Badge { border: 1px solid black !important; background: transparent !important; color: black !important; }
-          
-          /* Footer Fix */
-          .pt-20 { page-break-inside: avoid !important; }
-        }
-      `}} />
     </div>
   );
 }

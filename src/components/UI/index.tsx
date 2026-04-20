@@ -4,6 +4,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
+export * from './SearchableSelect';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

@@ -15,6 +15,10 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { UpdatePassword } from './pages/UpdatePassword';
 import { CustomerDetails } from './pages/CustomerDetails';
 import { SupplierDetails } from './pages/SupplierDetails';
+import { SalesReturns } from './pages/SalesReturns';
+import { PurchaseReturns } from './pages/PurchaseReturns';
+import { DamagedStock } from './pages/DamagedStock';
+import { Reports } from './pages/Reports';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -54,7 +58,11 @@ export function App() {
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="suppliers/:id" element={<SupplierDetails />} />
             <Route path="billing" element={<Billing />} />
+            <Route path="billing/returns" element={<SalesReturns />} />
             <Route path="purchases" element={<Purchases />} />
+            <Route path="purchases/returns" element={<PurchaseReturns />} />
+            <Route path="inventory/damaged" element={<DamagedStock />} />
+            <Route path="reports" element={<Reports />} />
           </Route>
 
           {/* Catch-all */}

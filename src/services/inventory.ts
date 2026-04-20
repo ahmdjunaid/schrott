@@ -31,6 +31,7 @@ export const productService = {
       .select(`
         *,
         purchases!purchase_id (
+          created_at,
           suppliers!supplier_id (
             shop_name
           )
@@ -40,20 +41,16 @@ export const productService = {
       .gt('remaining_qty', 0)
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error('Supabase batch fetch error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
-    // Transform the data to match the expected interface if using direct join
-    const transformed = (data || []).map((item: any) => ({
+    return (data || []).map((item: any) => ({
       ...item,
       purchase: item.purchases ? {
-        supplier: item.purchases.suppliers
-      } : null
-    }));
-
-    return transformed as any[];
+        supplier: item.purchases.suppliers,
+        created_at: item.purchases.created_at
+      } : null,
+      subtitle: `${item.description || 'No Desc'} | Cost: ₹${parseFloat(item.purchase_price).toFixed(2)} | Date: ${item.purchases ? new Date(item.purchases.created_at).toLocaleDateString() : 'N/A'} | Src: ${item.purchases?.suppliers?.shop_name || 'Manual'}`
+    })) as any[];
   },
 
   create: async (product: Omit<Product, 'id' | 'created_at'>): Promise<Product> => {
@@ -83,6 +80,41 @@ export const productService = {
       .update({ is_active: false })
       .eq('id', id);
     if (error) throw error;
+  },
+
+  getSoldBatches: async (customerId: string, productId: string): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('bill_items')
+      .select(`
+        id,
+        quantity,
+        price,
+        total,
+        purchase_item_id,
+        created_at,
+        bill:bills!inner(id, created_at, customer_id),
+        batch:purchase_items(id, purchase_price, description, purchases(id, created_at, suppliers(shop_name))),
+        returns:sales_return_items(quantity)
+      `)
+      .eq('product_id', productId)
+      .eq('bills.customer_id', customerId);
+    
+    if (error) throw error;
+
+    return (data || []).map((item: any) => {
+      const returnedQty = (item.returns || []).reduce((sum: number, ret: any) => sum + (ret.quantity || 0), 0);
+      const remainingToReturn = item.quantity - returnedQty;
+
+      return {
+        ...item,
+        quantity: remainingToReturn, // Show NET quantity available for return
+        original_qty: item.quantity,
+        returned_qty: returnedQty,
+        batch_id: item.purchase_item_id,
+        purchase_date: item.bill?.created_at,
+        subtitle: `Bill: #${item.bill?.id?.slice(0, 8)} | At: ₹${parseFloat(item.batch?.purchase_price || 0).toFixed(2)} | Date: ${item.batch?.purchases ? new Date(item.batch.purchases.created_at).toLocaleDateString() : 'N/A'} | ${item.batch?.description || 'No Desc'}`
+      };
+    }).filter(item => item.quantity > 0); // Only show items that still have something to return
   }
 };
 

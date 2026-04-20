@@ -7,18 +7,25 @@ export const supplierService = {
       .from('suppliers')
       .select(`
         *,
-        purchases(balance_amount)
+        purchases(total_amount),
+        supplier_payments(amount),
+        purchase_returns(total_amount)
       `)
       .eq('is_active', true)
       .order('shop_name', { ascending: true });
     
     if (error) throw error;
     
-    return data.map((s: any) => ({
-      ...s,
-      balance: s.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.balance_amount), 0) || 0,
-      wallet_balance: s.wallet_balance || 0
-    }));
+    return data.map((s: any) => {
+      const totalPurchased = s.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.total_amount), 0) || 0;
+      const totalPaid = s.supplier_payments?.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0) || 0;
+      const totalReturned = s.purchase_returns?.reduce((sum: number, r: any) => sum + parseFloat(r.total_amount), 0) || 0;
+      return {
+        ...s,
+        balance: totalPurchased - totalPaid - totalReturned,
+        wallet_balance: 0
+      };
+    });
   },
 
   getById: async (id: string): Promise<Supplier & { balance: number }> => {
@@ -26,55 +33,63 @@ export const supplierService = {
       .from('suppliers')
       .select(`
         *,
-        purchases(balance_amount)
+        purchases(total_amount),
+        supplier_payments(amount),
+        purchase_returns(total_amount)
       `)
       .eq('id', id)
       .single();
     
     if (error) throw error;
     
+    const totalPurchased = data.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.total_amount), 0) || 0;
+    const totalPaid = data.supplier_payments?.reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0) || 0;
+    const totalReturned = data.purchase_returns?.reduce((sum: number, r: any) => sum + parseFloat(r.total_amount), 0) || 0;
+
     return {
       ...data,
-      balance: data.purchases?.reduce((sum: number, p: any) => sum + parseFloat(p.balance_amount), 0) || 0,
-      wallet_balance: data.wallet_balance || 0
+      balance: totalPurchased - totalPaid - totalReturned,
+      wallet_balance: 0
     };
   },
 
   getTransactions: async (id: string, startDate?: string) => {
     let purchasesQuery = supabase.from('purchases').select('*').eq('supplier_id', id);
-    let walletQuery = supabase.from('supplier_wallet_history').select('*').eq('supplier_id', id);
+    let paymentsQuery = supabase.from('supplier_payments').select('*').eq('supplier_id', id);
+    let returnsQuery = supabase.from('purchase_returns').select('*').eq('supplier_id', id);
     
     if (startDate) {
       purchasesQuery = purchasesQuery.gte('created_at', startDate);
-      walletQuery = walletQuery.gte('created_at', startDate);
+      paymentsQuery = paymentsQuery.gte('created_at', startDate);
+      returnsQuery = returnsQuery.gte('created_at', startDate);
     }
 
-    const [purchasesResp, walletResp] = await Promise.all([purchasesQuery, walletQuery]);
+    const [purchasesResp, paymentsResp, returnsResp] = await Promise.all([
+      purchasesQuery, 
+      paymentsQuery,
+      returnsQuery
+    ]);
 
     if (purchasesResp.error) throw purchasesResp.error;
-    if (walletResp.error) throw walletResp.error;
+    if (paymentsResp.error) throw paymentsResp.error;
+    if (returnsResp.error) throw returnsResp.error;
 
-    // Fetch payments linked to these purchases
-    const purchaseIds = purchasesResp.data.map(p => p.id);
-    let paymentsQuery = supabase.from('supplier_payments').select('*').in('purchase_id', purchaseIds);
-    if (startDate) paymentsQuery = paymentsQuery.gte('created_at', startDate);
-    
-    const { data: payments, error: payError } = await paymentsQuery;
-    if (payError) throw payError;
-
-    const typePriority: { [key: string]: number } = { 'WALLET': 0, 'PAYMENT': 1, 'INVOICE': 2 };
+    const allPayments = paymentsResp.data;
+    const typePriority: { [key: string]: number } = { 'INVOICE': 0, 'PAYMENT': 1, 'RETURN': 2, 'REFUND': 3 };
 
     const merged = [
       ...purchasesResp.data.map(p => ({ ...p, type: 'INVOICE' })),
-      ...payments.map(p => ({ ...p, type: 'PAYMENT' })),
-      ...walletResp.data.map(w => ({ ...w, type: 'WALLET' }))
+      ...allPayments.map(p => ({ ...p, type: p.note === 'REFUND' ? 'REFUND' : 'PAYMENT' })),
+      ...returnsResp.data.map(r => ({ ...r, type: 'RETURN' })),
     ].sort((a, b) => {
       const timeA = new Date(a.created_at).getTime();
       const timeB = new Date(b.created_at).getTime();
-      if (timeA === timeB) {
+      
+      // If within 10 seconds, use priority
+      if (Math.abs(timeA - timeB) < 10000) {
         return typePriority[a.type] - typePriority[b.type];
       }
-      return timeB - timeA;
+      return timeA - timeB; // Ascending initially for ledger calc
     });
 
     return merged;
@@ -116,5 +131,17 @@ export const supplierService = {
       p_method: method
     });
     if (error) throw error;
+  },
+
+  processReturn: async (supplierId: string, items: any[], refundAmount: number = 0, refundMethod: string | null = null, description?: string): Promise<string> => {
+    const { data, error } = await supabase.rpc('process_purchase_return', {
+      p_supplier_id: supplierId,
+      p_items: items,
+      p_refund_amount: refundAmount,
+      p_refund_method: refundMethod,
+      p_description: description
+    });
+    if (error) throw error;
+    return data;
   }
 };

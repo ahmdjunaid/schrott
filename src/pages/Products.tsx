@@ -29,7 +29,8 @@ export function Products() {
     cgst: 0,
     category_id: '',
     brand_id: '',
-    is_active: true
+    is_active: true,
+    stock: 0
   });
 
   useEffect(() => {
@@ -82,7 +83,8 @@ export function Products() {
       cgst: product.cgst || 0,
       category_id: product.category_id || '',
       brand_id: product.brand_id || '',
-      is_active: product.is_active
+      is_active: product.is_active,
+      stock: product.stock || 0
     });
     setIsModalOpen(true);
   };
@@ -123,10 +125,10 @@ export function Products() {
       selling_price: 0,
       sgst: 0,
       cgst: 0,
-      cgst: 0,
       category_id: '',
       brand_id: '',
-      is_active: true
+      is_active: true,
+      stock: 0
     });
     setEditingProduct(null);
   };

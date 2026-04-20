@@ -13,7 +13,10 @@ import {
   HelpCircle,
   ChevronDown,
   ShoppingBag,
-  Truck
+  Truck,
+  RotateCcw,
+  BarChart3,
+  Trash2
 } from 'lucide-react';
 import { cn, Avatar } from './UI';
 import { useAuth } from '../hooks/useAuth';
@@ -26,11 +29,15 @@ const sidebarLinks = [
   { name: 'Products', id: 'products', href: '/inventory/products', icon: Package },
   { name: 'Suppliers', id: 'suppliers', href: '/suppliers', icon: Truck },
   { name: 'Customers', id: 'customers', href: '/customers', icon: Users },
+  { name: 'Sales Returns', id: 'sales-returns', href: '/billing/returns', icon: RotateCcw },
+  { name: 'Purchase Returns', id: 'purchase-returns', href: '/purchases/returns', icon: RotateCcw },
 ];
 
 const moreLinks = [
   { name: 'Categories', id: 'categories', href: '/inventory/categories', icon: Tags },
   { name: 'Brands', id: 'brands', href: '/inventory/brands', icon: Copyright },
+  { name: 'Damaged Stock', id: 'damaged-stock', href: '/inventory/damaged', icon: Trash2 },
+  { name: 'Reports', id: 'reports', href: '/reports', icon: BarChart3 },
 ];
 
 export function Layout() {
@@ -83,7 +90,12 @@ export function Layout() {
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {sidebarLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = location.pathname === link.href || (link.href !== '/' && location.pathname.startsWith(link.href));
+              // Exact match or sub-path match ONLY if there isn't a more specific link for this exact path
+              const isExact = location.pathname === link.href;
+              const isSubPath = link.href !== '/' && location.pathname.startsWith(link.href);
+              const isAnyOtherLinkExact = sidebarLinks.some(s => s.href === location.pathname && s.id !== link.id);
+              
+              const isActive = isExact || (isSubPath && !isAnyOtherLinkExact);
               
               return (
                 <Link

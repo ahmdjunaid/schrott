@@ -61,7 +61,6 @@ export function Billing() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [useWallet, setUseWallet] = useState(true);
   const [viewingBill, setViewingBill] = useState<any>(null);
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [oldBalance, setOldBalance] = useState(0);
@@ -167,14 +166,12 @@ export function Billing() {
   };
 
   const updateItemQuantity = (purchaseItemId: string, quantity: number) => {
+    if (quantity < 0) return; // Block negative
+    
     setBillItems(billItems.map(item => {
       if (item.purchase_item_id === purchaseItemId) {
-        if (quantity > item.max_qty) {
-          toast.error(`Insufficient stock! Only ${item.max_qty} available.`);
-          return item;
-        }
-        if (quantity <= 0) {
-          removeItem(purchaseItemId);
+        if (!item.purchase_item_id.startsWith('temp-') && quantity > item.max_qty) {
+          toast.error(`Insufficient stock! Max available: ${item.max_qty}`);
           return item;
         }
         
@@ -185,7 +182,7 @@ export function Billing() {
         return { ...item, quantity, sgst, cgst, total };
       }
       return item;
-    }).filter(item => item.quantity > 0));
+    }));
   };
 
   const updateItemPrice = (purchaseItemId: string, price: number) => {
@@ -220,23 +217,30 @@ export function Billing() {
 
     setSubmitting(true);
     try {
-      const formattedItems = billItems.map(item => ({
-        product_id: item.product_id,
-        purchase_item_id: item.purchase_item_id,
-        quantity: item.quantity,
-        selling_price: item.price,
-        purchase_price: item.purchase_price,
-        sgst: item.sgst,
-        cgst: item.cgst,
-        total: item.total
-      }));
+      const formattedItems = billItems
+        .filter(item => item.quantity > 0 && !item.purchase_item_id.startsWith('temp-'))
+        .map(item => ({
+          product_id: item.product_id,
+          purchase_item_id: item.purchase_item_id,
+          quantity: item.quantity,
+          selling_price: item.price,
+          purchase_price: item.purchase_price,
+          sgst: item.sgst,
+          cgst: item.cgst,
+          total: item.total
+        }));
+      
+      if (formattedItems.length === 0) {
+        toast.error('No items with valid quantity selected');
+        setSubmitting(false);
+        return;
+      }
 
       await billingService.createBill({
         customer_id: selectedCustomerId,
         items: formattedItems,
         paid_amount: parseFloat(paidAmount.toString()),
-        payment_method: parseFloat(paidAmount.toString()) > 0 ? paymentMethod : null,
-        use_wallet: useWallet
+        payment_method: parseFloat(paidAmount.toString()) > 0 ? paymentMethod : null
       });
       
       setIsCreateModalOpen(false);
@@ -330,7 +334,6 @@ _Thank you for your business!_`;
     }]);
     setPaidAmount(0);
     setPaymentMethod('cash');
-    setUseWallet(true);
   };
 
   const filteredBills = bills.filter(bill => 
@@ -379,7 +382,7 @@ _Thank you for your business!_`;
           </div>
         ) : (
           <>
-            <Table headers={['Date', 'Bill No', 'Customer Name', 'Total Amount', 'Status', 'Actions']}>
+            <Table headers={['Date', 'Bill No', 'Customer Name', 'Total Amount', 'Status', 'Balance', 'Actions']}>
               {filteredBills
                 .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                 .map((bill) => (
@@ -397,23 +400,27 @@ _Thank you for your business!_`;
                     </td>
                     <td className="px-6 py-4">
                        <div className="text-sm font-black text-slate-900 italic">₹{bill.total_amount.toFixed(2)}</div>
-                       <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Total Amount</div>
+                       <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Total</div>
                     </td>
                     <td className="px-6 py-4">
                        <Badge status={bill.status} />
                     </td>
                     <td className="px-6 py-4">
-                       <div className="flex items-center justify-end gap-1">
+                       <div className="text-sm font-black text-rose-600 italic">₹{bill.balance_amount.toFixed(2)}</div>
+                       <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic text-rose-400/60">Pending</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                       <div className="flex justify-center gap-2">
                           <button 
                             onClick={() => handleViewBill(bill.id)}
-                            className="p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-all"
+                            className="p-2 text-slate-400 hover:bg-primary/5 rounded-lg transition-all border border-transparent hover:border-primary/10"
                             title="View Details"
                           >
                             <Eye size={18} strokeWidth={2.5} />
                           </button>
                           <button 
                             onClick={() => handleBillDelete(bill.id)} 
-                            className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all"
+                            className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all border border-transparent hover:border-rose-100"
                             title="Void Invoice"
                           >
                             <Trash2 size={18} strokeWidth={2.5} />
@@ -470,28 +477,47 @@ _Thank you for your business!_`;
              <div className="w-1 h-4 bg-primary rounded-full shadow-sm" />
              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Customer Details</h3>
           </div>
-          <select
-            className="w-full h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-black shadow-sm outline-none focus:ring-4 focus:ring-primary/10 transition-all italic"
+          <SearchableSelect
+            options={customers.map(c => ({ 
+              id: c.id, 
+              name: c.shop_name, 
+              subtitle: `${c.location || 'Local'} — Balance: ₹${Math.abs(c.balance || 0).toFixed(2)} (${(c.balance || 0) > 0 ? 'DUE' : 'ADV'})`
+            }))}
             value={selectedCustomerId}
-            onChange={(e) => setSelectedCustomerId(e.target.value)}
-          >
-            <option value="">Select a customer...</option>
-            {customers.map(c => (
-              <option key={c.id} value={c.id} className="font-bold">{c.shop_name} — {c.location || 'Local'}</option>
-            ))}
-          </select>
+            onChange={setSelectedCustomerId}
+            placeholder="Select a customer..."
+          />
         </div>
         {selectedCustomerId && (
-          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 min-w-[240px] border-l-4 border-l-primary/40">
-             <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary shadow-sm border border-primary/10">
-                <MapPin size={20} strokeWidth={2.5} />
-             </div>
-             <div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Customer Location</div>
-                <div className="text-sm font-black text-slate-900 italic tracking-tight leading-none uppercase">
-                  {customers.find(c => c.id === selectedCustomerId)?.location || 'Local Terminal'}
-                </div>
-             </div>
+          <div className="flex gap-4">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 min-w-[200px] border-l-4 border-l-primary/40">
+               <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary shadow-sm border border-primary/10">
+                  <Banknote size={20} strokeWidth={2.5} />
+               </div>
+               <div>
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Current Balance</div>
+                  <div className={cn(
+                    "text-sm font-black italic tracking-tight leading-none uppercase",
+                    (customers.find(c => c.id === selectedCustomerId)?.balance || 0) > 0 ? "text-rose-600" : "text-emerald-600"
+                  )}>
+                    ₹{Math.abs(customers.find(c => c.id === selectedCustomerId)?.balance || 0).toFixed(2)}
+                    <span className="text-[10px] ml-1">
+                      {(customers.find(c => c.id === selectedCustomerId)?.balance || 0) > 0 ? 'DUE' : 'ADV'}
+                    </span>
+                  </div>
+               </div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xl shadow-slate-200/20 flex items-center gap-4 min-w-[200px] border-l-4 border-l-slate-400/40">
+               <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100">
+                  <MapPin size={20} strokeWidth={2.5} />
+               </div>
+               <div>
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Customer Location</div>
+                  <div className="text-sm font-black text-slate-900 italic tracking-tight leading-none uppercase">
+                    {customers.find(c => c.id === selectedCustomerId)?.location || 'Local Terminal'}
+                  </div>
+               </div>
+            </div>
           </div>
         )}
       </div>
@@ -596,48 +622,6 @@ _Thank you for your business!_`;
                <div className="w-1 h-4 bg-primary rounded-full shadow-sm" />
                <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Payment Details</h3>
              </div>
-
-             {((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance > 0) && (
-                  <button 
-                    onClick={() => {
-                      const newUseWallet = !useWallet;
-                      setUseWallet(newUseWallet);
-                      if (newUseWallet) {
-                        const wallet = (customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0;
-                        setPaidAmount(Math.max(0, billTotal - wallet).toFixed(2));
-                      }
-                    }}
-                    className={cn(
-                      "w-full p-4 rounded-2xl border-2 flex items-center justify-between transition-all group relative overflow-hidden",
-                      useWallet 
-                        ? "bg-emerald-50/50 border-emerald-500/20 text-emerald-800 shadow-xl shadow-emerald-500/5" 
-                        : "bg-white border-slate-200 text-slate-400 hover:border-primary/30"
-                    )}
-                  >
-                    {useWallet && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />}
-                    <div className="flex items-center gap-4 relative">
-                       <div className={cn(
-                         "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-                         useWallet ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200" : "bg-slate-100 text-slate-400"
-                       )}>
-                          <Receipt size={24} strokeWidth={2.5} />
-                       </div>
-                       <div className="text-left">
-                          <div className="text-[10px] font-black uppercase tracking-[0.2em] leading-none mb-1">Apply Wallet Balance</div>
-                          <div className="text-lg font-black italic tracking-tighter">Use ₹{Math.min(((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0), billTotal).toFixed(2)} from Customer Wallet</div>
-                       </div>
-                    </div>
-                    <div className={cn(
-                      "w-14 h-8 rounded-full relative transition-all flex items-center px-1 shadow-inner",
-                      useWallet ? "bg-emerald-500" : "bg-slate-300"
-                    )}>
-                      <div className={cn(
-                         "w-6 h-6 bg-white rounded-full transition-all shadow-md transform",
-                         useWallet ? "translate-x-6" : "translate-x-0"
-                      )} />
-                    </div>
-                  </button>
-               )}
            
            <div className="grid grid-cols-2 gap-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/20">
               <div className="space-y-2">
@@ -745,10 +729,10 @@ _Thank you for your business!_`;
                          <span className="font-black text-base italic tracking-tighter">₹{parseFloat(paidAmount.toString()) || 0}</span>
                       </div>
 
-                      {useWallet && ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance > 0) && (
+                      {(customers.find(c => c.id === selectedCustomerId)?.balance || 0) < 0 && (
                            <div className="flex justify-between items-center text-emerald-400 group/row">
-                              <span className="font-bold text-[10px] uppercase tracking-widest">Wallet Used</span>
-                              <span className="font-black text-base italic tracking-tighter">- ₹{Math.min(((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0), billTotal).toFixed(2)}</span>
+                              <span className="font-bold text-[10px] uppercase tracking-widest">Credit Applied</span>
+                              <span className="font-black text-base italic tracking-tighter">- ₹{Math.min(Math.abs(customers.find(c => c.id === selectedCustomerId)?.balance || 0), billTotal).toFixed(2)}</span>
                            </div>
                        )}
 
@@ -756,11 +740,11 @@ _Thank you for your business!_`;
                          <span className="text-slate-500 font-black text-[9px] uppercase tracking-[0.4em] leading-none">Remaining Balance</span>
                          <div className={cn(
                            "text-2xl font-black italic tracking-tighter transition-all duration-500",
-                           Math.max(0, billTotal - (useWallet ? ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0) : 0) - (parseFloat(paidAmount.toString()) || 0)) > 0 
+                           Math.max(0, billTotal - Math.abs(Math.min(0, customers.find(c => c.id === selectedCustomerId)?.balance || 0)) - (parseFloat(paidAmount.toString()) || 0)) > 0 
                              ? "text-rose-500" 
                              : "text-emerald-500"
                          )}>
-                           ₹{Math.max(0, billTotal - (useWallet ? ((customers.find(c => c.id === selectedCustomerId) as any)?.wallet_balance || 0) : 0) - (parseFloat(paidAmount.toString()) || 0)).toFixed(2)}
+                           ₹{Math.max(0, billTotal - Math.abs(Math.min(0, customers.find(c => c.id === selectedCustomerId)?.balance || 0)) - (parseFloat(paidAmount.toString()) || 0)).toFixed(2)}
                          </div>
                       </div>
                   </div>

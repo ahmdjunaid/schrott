@@ -33,7 +33,8 @@ export function Suppliers() {
     name: '', 
     phone: '', 
     shop_name: '', 
-    location: '' 
+    location: '', 
+    is_active: true
   });
 
   useEffect(() => {
@@ -73,12 +74,26 @@ export function Suppliers() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation
+    if (!formData.shop_name || formData.shop_name.trim().length < 2) {
+      toast.error('Please enter a valid Shop Name');
+      return;
+    }
+    
+    const phoneClean = formData.phone.replace(/\D/g, '');
+    if (phoneClean.length !== 10) {
+      toast.error('Phone number must be exactly 10 digits');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      const payload = { ...formData, phone: phoneClean };
       if (editingSupplier) {
-        await supplierService.update(editingSupplier.id, formData);
+        await supplierService.update(editingSupplier.id, payload);
       } else {
-        await supplierService.create(formData);
+        await supplierService.create(payload);
       }
       setIsModalOpen(false);
       fetchSuppliers();
@@ -97,7 +112,8 @@ export function Suppliers() {
       name: supplier.name || '', 
       phone: supplier.phone, 
       shop_name: supplier.shop_name, 
-      location: supplier.location || '' 
+      location: supplier.location || '',
+      is_active: supplier.is_active
     });
     setIsModalOpen(true);
   };
@@ -118,7 +134,7 @@ export function Suppliers() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', shop_name: '', location: '' });
+    setFormData({ name: '', phone: '', shop_name: '', location: '', is_active: true });
     setEditingSupplier(null);
   };
 
@@ -163,7 +179,7 @@ export function Suppliers() {
           </div>
         ) : (
           <>
-            <Table headers={['Supplier Name', 'Phone', 'Total Balance', 'Wallet Credits', 'Actions']}>
+            <Table headers={['Supplier Name', 'Phone', 'Net Balance', 'Actions']}>
               {filteredSuppliers
                 .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                 .map((s) => (
@@ -179,13 +195,14 @@ export function Suppliers() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={cn("text-sm font-black italic", s.balance > 0 ? 'text-rose-600' : 'text-slate-300')}>
-                        ₹{s.balance.toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className={cn("text-xs font-black px-2 py-1 rounded-full inline-block", (s.wallet_balance || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400')}>
-                        ₹{(s.wallet_balance || 0).toFixed(2)}
+                      <div className={cn(
+                        "text-sm font-black italic", 
+                        s.balance > 0 ? 'text-rose-600' : 'text-emerald-600'
+                      )}>
+                        ₹{Math.abs(s.balance || 0).toFixed(2)}
+                        <span className="text-[8px] ml-2 opacity-50 uppercase tracking-tighter">
+                          {s.balance > 0 ? 'Due' : 'Credit'}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
