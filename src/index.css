@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --font-sans: "Inter", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   --bg-primary: #f9fafb;
   --sidebar-active: #f1f5f9;
   --sidebar-text-active: #4F46E5;
 }
 
 @theme {
+  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-anton: "Anton", sans-serif;
+  
   --color-primary: #4F46E5;
   --color-primary-hover: #4338CA;
   --color-secondary: #64748b;
@@ -24,8 +26,7 @@
 
 @layer base {
   body {
-    font-family: var(--font-sans);
-    @apply bg-[var(--bg-primary)] text-slate-700 antialiased selection:bg-primary/10 selection:text-primary;
+    @apply font-sans bg-[var(--bg-primary)] text-slate-700 antialiased selection:bg-primary/10 selection:text-primary;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
