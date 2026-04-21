@@ -81,7 +81,7 @@ export function Layout() {
         <div className="h-full flex flex-col">
           {/* Logo Section */}
           <div className="h-20 flex items-center px-6 border-b border-slate-100 mb-2">
-            <h1 className="text-2xl font-black text-primary tracking-tighter" style={{ fontFamily: "var(--font-sans)" }}>
+            <h1 className="text-2xl font-extrabold text-primary tracking-tight" style={{ fontFamily: "var(--font-sans)" }}>
               Schrott.<span className="text-slate-400">Billing</span>
             </h1>
           </div>

@@ -34,7 +34,7 @@ export function Login() {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
                  <LogIn size={20} className="text-white" />
               </div>
-              <h1 className="text-3xl font-black text-primary tracking-tighter">Schrott.<span className="text-slate-400">Billing</span></h1>
+              <h1 className="text-3xl font-extrabold text-primary tracking-tight">Schrott.<span className="text-slate-400">Billing</span></h1>
            </div>
            <p className="text-slate-500 font-bold text-sm">Professional Billing & Inventory Management</p>
         </div>
